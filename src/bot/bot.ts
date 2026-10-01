@@ -11,6 +11,7 @@ interface SessionData {
   step: 'IDLE' | 'AWAITING_QUESTION_TEXT' | 'AWAITING_FILES' | 'AWAITING_RECEIPT' | 'CHECK_DOC_FILE' | 'CHECK_DOC_COMMENT' | 'LETTER_FILE' | 'LETTER_COMMENT' | 'LETTER_ENTERPRISE';
   pendingQuestionText?: string;
   pendingServiceId?: number;
+  draftQuestionId?: number;
   pendingFiles?: Array<{ fileId: string; fileType: string; fileName?: string }>;
   activeQuestionId?: number;
   enterpriseName?: string;
@@ -21,20 +22,16 @@ export type MyContext = Context & SessionFlavor<SessionData>;
 export function createBot(): Bot<MyContext> {
   const bot = new Bot<MyContext>(config.botToken || 'dummy_token');
 
-  // Error boundary
   bot.catch((err) => {
     console.error('Telegram Bot Error caught:', err);
   });
 
-  // Register bot instance with notification service
   setBotInstance(bot as any);
 
-  // Session middleware
   bot.use(session({
     initial: (): SessionData => ({ step: 'IDLE', pendingFiles: [] }),
   }));
 
-  // Helper to get user language
   async function getUserLang(telegramId: string): Promise<Language> {
     try {
       const user = await prisma.user.findUnique({ where: { telegramId } });
@@ -89,6 +86,7 @@ export function createBot(): Bot<MyContext> {
     ctx.session.pendingFiles = [];
     ctx.session.pendingQuestionText = undefined;
     ctx.session.pendingServiceId = undefined;
+    ctx.session.draftQuestionId = undefined;
 
     await ctx.reply(messages[lang].cancelled, {
       reply_markup: getMainMenu(lang),
@@ -169,6 +167,7 @@ export function createBot(): Bot<MyContext> {
       where: { telegramId: tgId },
       include: {
         questions: {
+          where: { status: { not: 'DRAFT' } },
           orderBy: { createdAt: 'desc' },
           take: 10,
           include: { service: true },
@@ -245,10 +244,17 @@ export function createBot(): Bot<MyContext> {
       return;
     }
 
-    // 2. Select service / tariff
+    // 2. Select service / tariff: format "select_service:<serviceId>" or "select_service:<serviceId>:<draftId>"
     if (data.startsWith('select_service:')) {
-      const serviceId = parseInt(data.replace('select_service:', ''), 10);
+      const parts = data.split(':');
+      const serviceId = parseInt(parts[1], 10);
+      const draftId = parts[2] ? parseInt(parts[2], 10) : undefined;
+
       ctx.session.pendingServiceId = serviceId;
+      if (draftId) {
+        ctx.session.draftQuestionId = draftId;
+      }
+
       await ctx.answerCallbackQuery({ text: 'Tarif tanlandi!' });
 
       try {
@@ -446,15 +452,57 @@ export function createBot(): Bot<MyContext> {
 
   // Generic text message handler
   bot.on('message:text', async (ctx) => {
-    const text = ctx.message.text;
+    const text = ctx.message.text.trim();
     const tgId = ctx.from.id.toString();
     const lang = await getUserLang(tgId);
     const step = ctx.session.step;
 
-    if (step === 'AWAITING_QUESTION_TEXT') {
+    // Check if user is typing question text (either explicitly in AWAITING_QUESTION_TEXT or typing a fresh question)
+    const isMenuButton = [
+      messages.uz.menu.askQuestion, messages.ru.menu.askQuestion,
+      messages.uz.menu.checkDocument, messages.ru.menu.checkDocument,
+      messages.uz.menu.answerLetter, messages.ru.menu.answerLetter,
+      messages.uz.menu.tariffs, messages.ru.menu.tariffs,
+      messages.uz.menu.myQuestions, messages.ru.menu.myQuestions,
+      messages.uz.menu.rules, messages.ru.menu.rules,
+      messages.uz.menu.changeLang, messages.ru.menu.changeLang,
+      messages.uz.menu.cancel, messages.ru.menu.cancel,
+    ].includes(text);
+
+    if (step === 'AWAITING_QUESTION_TEXT' || (!isMenuButton && step === 'IDLE' && text.length > 5)) {
       ctx.session.pendingQuestionText = text;
 
-      // Show services for selection
+      // Ensure user is in database
+      let user = await prisma.user.findUnique({ where: { telegramId: tgId } });
+      if (!user) {
+        user = await prisma.user.create({
+          data: {
+            telegramId: tgId,
+            username: ctx.from.username || null,
+            firstName: ctx.from.first_name || null,
+            lastName: ctx.from.last_name || null,
+            language: lang,
+          },
+        });
+      }
+
+      // Immediately save a DRAFT question in the database so the text is NEVER lost!
+      const lastQ = await prisma.question.findFirst({ orderBy: { id: 'desc' } });
+      const qNum = lastQ ? lastQ.questionNumber + 1 : 1024;
+
+      const draftQ = await prisma.question.create({
+        data: {
+          questionNumber: qNum,
+          userId: user.id,
+          questionText: text,
+          status: 'DRAFT',
+          price: 0,
+        },
+      });
+
+      ctx.session.draftQuestionId = draftQ.id;
+
+      // Show services for selection with draftId embedded in callback data!
       const services = await prisma.service.findMany({
         where: { isActive: true },
         orderBy: { sortOrder: 'asc' },
@@ -464,7 +512,7 @@ export function createBot(): Bot<MyContext> {
       services.forEach((s) => {
         const name = lang === 'ru' ? s.nameRu : s.nameUz;
         const price = s.priceText || `${s.price.toLocaleString('uz-UZ')} so‘m`;
-        kb.text(`${name} — ${price}`, `select_service:${s.id}`).row();
+        kb.text(`${name} — ${price}`, `select_service:${s.id}:${draftQ.id}`).row();
       });
 
       await ctx.reply(messages[lang].serviceSelectPrompt, {
@@ -523,9 +571,35 @@ export function createBot(): Bot<MyContext> {
       });
     }
 
-    const questionText = ctx.session.pendingQuestionText || "Umumiy soliq maslahati";
-    const serviceId = ctx.session.pendingServiceId || 1;
+    // Determine the real question text:
+    let questionText = ctx.session.pendingQuestionText;
+    let existingDraftId = ctx.session.draftQuestionId;
 
+    // Check if we have an existing DRAFT question in the database
+    if (existingDraftId) {
+      const existingDraft = await prisma.question.findUnique({ where: { id: existingDraftId } });
+      if (existingDraft && existingDraft.questionText) {
+        questionText = existingDraft.questionText;
+      }
+    }
+
+    // Fallback: look for user's latest DRAFT in database
+    if (!questionText) {
+      const latestDraft = await prisma.question.findFirst({
+        where: { userId: user.id, status: 'DRAFT' },
+        orderBy: { id: 'desc' },
+      });
+      if (latestDraft && latestDraft.questionText) {
+        questionText = latestDraft.questionText;
+        existingDraftId = latestDraft.id;
+      }
+    }
+
+    if (!questionText) {
+      questionText = "Umumiy soliq maslahati";
+    }
+
+    const serviceId = ctx.session.pendingServiceId || 1;
     let service = await prisma.service.findUnique({ where: { id: serviceId } });
     if (!service) {
       service = await prisma.service.findFirst();
@@ -533,11 +607,7 @@ export function createBot(): Bot<MyContext> {
     const servicePrice = service?.price || 30000;
     const serviceName = (lang === 'ru' ? service?.nameRu : service?.nameUz) || 'Soliq maslahati';
 
-    // Generate unique question number
-    const lastQuestion = await prisma.question.findFirst({ orderBy: { id: 'desc' } });
-    const questionNumber = lastQuestion ? lastQuestion.questionNumber + 1 : 1024;
-
-    // Run AI analysis
+    // Run AI analysis on the REAL question text
     let aiAnalysis = {
       category: "Soliq maslahati",
       summary: "Soliq va buxgalteriya tahlili",
@@ -550,29 +620,52 @@ export function createBot(): Bot<MyContext> {
       console.warn('AI analysis skipped:', e);
     }
 
-    // Save question in database
-    const createdQuestion = await prisma.question.create({
-      data: {
-        questionNumber,
-        userId: user.id,
-        serviceId: service?.id,
-        questionText,
-        enterpriseName: ctx.session.enterpriseName || null,
-        status: 'PAYMENT_PENDING',
-        price: servicePrice,
-        aiCategory: aiAnalysis.category,
-        aiSummary: aiAnalysis.summary,
-        aiDraftAnswer: aiAnalysis.draftAnswer,
-        aiLegalBasis: aiAnalysis.legalBasis,
-      },
-    });
+    let questionRecord;
+
+    if (existingDraftId) {
+      // Update existing DRAFT question to PAYMENT_PENDING with full details
+      questionRecord = await prisma.question.update({
+        where: { id: existingDraftId },
+        data: {
+          serviceId: service?.id,
+          questionText,
+          enterpriseName: ctx.session.enterpriseName || null,
+          status: 'PAYMENT_PENDING',
+          price: servicePrice,
+          aiCategory: aiAnalysis.category,
+          aiSummary: aiAnalysis.summary,
+          aiDraftAnswer: aiAnalysis.draftAnswer,
+          aiLegalBasis: aiAnalysis.legalBasis,
+        },
+      });
+    } else {
+      // Create new question
+      const lastQ = await prisma.question.findFirst({ orderBy: { id: 'desc' } });
+      const qNum = lastQ ? lastQ.questionNumber + 1 : 1024;
+
+      questionRecord = await prisma.question.create({
+        data: {
+          questionNumber: qNum,
+          userId: user.id,
+          serviceId: service?.id,
+          questionText,
+          enterpriseName: ctx.session.enterpriseName || null,
+          status: 'PAYMENT_PENDING',
+          price: servicePrice,
+          aiCategory: aiAnalysis.category,
+          aiSummary: aiAnalysis.summary,
+          aiDraftAnswer: aiAnalysis.draftAnswer,
+          aiLegalBasis: aiAnalysis.legalBasis,
+        },
+      });
+    }
 
     // Save files if any
     if (ctx.session.pendingFiles && ctx.session.pendingFiles.length > 0) {
       for (const f of ctx.session.pendingFiles) {
         await prisma.questionFile.create({
           data: {
-            questionId: createdQuestion.id,
+            questionId: questionRecord.id,
             fileId: f.fileId,
             fileType: f.fileType,
             fileName: f.fileName,
@@ -582,12 +675,12 @@ export function createBot(): Bot<MyContext> {
     }
 
     try {
-      await logActivity('QUESTION_CREATED', `Yangi savol #${questionNumber} yaratildi.`, { questionId: createdQuestion.id });
+      await logActivity('QUESTION_CREATED', `Yangi savol #${questionRecord.questionNumber} yaratildi.`, { questionId: questionRecord.id });
     } catch {}
 
     // Notify admin safely
     try {
-      await notifyAdminNewQuestion(createdQuestion.id);
+      await notifyAdminNewQuestion(questionRecord.id);
     } catch (e) {
       console.error('Admin notification error:', e);
     }
@@ -602,12 +695,13 @@ export function createBot(): Bot<MyContext> {
 
     // Reset session and set to awaiting receipt
     ctx.session.step = 'AWAITING_RECEIPT';
-    ctx.session.activeQuestionId = createdQuestion.id;
+    ctx.session.activeQuestionId = questionRecord.id;
     ctx.session.pendingFiles = [];
     ctx.session.pendingQuestionText = undefined;
     ctx.session.pendingServiceId = undefined;
+    ctx.session.draftQuestionId = undefined;
 
-    const summary = messages[lang].orderSummary(questionNumber, serviceName, priceFormatted);
+    const summary = messages[lang].orderSummary(questionRecord.questionNumber, serviceName, priceFormatted);
     const payInstruction = messages[lang].paymentInstructions(cardNum, cardHolder, priceFormatted);
 
     const docNote = lang === 'ru' 
@@ -622,7 +716,6 @@ export function createBot(): Bot<MyContext> {
         reply_markup: getCancelKeyboard(lang),
       });
     } catch (parseErr) {
-      // Fallback without parse_mode if Markdown parsing failed
       await ctx.reply(fullMessage, {
         reply_markup: getCancelKeyboard(lang),
       });
