@@ -2,7 +2,7 @@
 import { prisma, logActivity } from '../database/db.js';
 import { config } from '../config/index.js';
 import { messages, Language } from './i18n.js';
-import { getMainMenu, getLanguageKeyboard, getCancelKeyboard, getFileStepKeyboard, getPaymentConfirmKeyboard } from './keyboards.js';
+import { getMainMenu, getLanguageKeyboard, getCancelKeyboard, getFileStepKeyboard } from './keyboards.js';
 import { analyzeTaxQuestion } from '../services/aiService.js';
 import { notifyAdminNewQuestion, setBotInstance } from '../services/notificationService.js';
 import { submitManualPaymentReceipt, approvePayment, rejectPayment } from '../services/paymentService.js';
@@ -73,31 +73,8 @@ export function createBot(): Bot<MyContext> {
     });
   });
 
-  // Language selection callbacks
-  bot.callbackQuery(['set_lang_uz', 'set_lang_ru'], async (ctx) => {
-    if (!ctx.from) return;
-    const tgId = ctx.from.id.toString();
-    const newLang: Language = ctx.callbackQuery.data === 'set_lang_ru' ? 'ru' : 'uz';
-
-    await prisma.user.upsert({
-      where: { telegramId: tgId },
-      update: { language: newLang },
-      create: {
-        telegramId: tgId,
-        username: ctx.from.username || null,
-        firstName: ctx.from.first_name || null,
-        language: newLang,
-      },
-    });
-
-    await ctx.answerCallbackQuery();
-    await ctx.reply(messages[newLang].languageChanged, {
-      reply_markup: getMainMenu(newLang),
-    });
-  });
-
   // Cancel Handler
-  bot.hears([messages.uz.menu.cancel, messages.ru.menu.cancel], async (ctx) => {
+  bot.hears([messages.uz.menu.cancel, messages.ru.menu.cancel, '❌ Bekor qilish', '❌ Отмена'], async (ctx) => {
     const lang = await getUserLang(ctx.from!.id.toString());
     ctx.session.step = 'IDLE';
     ctx.session.pendingFiles = [];
@@ -110,7 +87,7 @@ export function createBot(): Bot<MyContext> {
   });
 
   // Main Menu: 📝 Savol berish
-  bot.hears([messages.uz.menu.askQuestion, messages.ru.menu.askQuestion], async (ctx) => {
+  bot.hears([messages.uz.menu.askQuestion, messages.ru.menu.askQuestion, '📝 Savol berish', '📝 Задать вопрос'], async (ctx) => {
     const lang = await getUserLang(ctx.from!.id.toString());
     ctx.session.step = 'AWAITING_QUESTION_TEXT';
     ctx.session.pendingFiles = [];
@@ -122,7 +99,7 @@ export function createBot(): Bot<MyContext> {
   });
 
   // Main Menu: 📄 Hujjatni tekshirtirish
-  bot.hears([messages.uz.menu.checkDocument, messages.ru.menu.checkDocument], async (ctx) => {
+  bot.hears([messages.uz.menu.checkDocument, messages.ru.menu.checkDocument, '📄 Hujjatni tekshirtirish', '📄 Проверить документ'], async (ctx) => {
     const lang = await getUserLang(ctx.from!.id.toString());
     ctx.session.step = 'CHECK_DOC_FILE';
     ctx.session.pendingFiles = [];
@@ -139,7 +116,7 @@ export function createBot(): Bot<MyContext> {
   });
 
   // Main Menu: ✍️ Javob xati tayyorlash
-  bot.hears([messages.uz.menu.answerLetter, messages.ru.menu.answerLetter], async (ctx) => {
+  bot.hears([messages.uz.menu.answerLetter, messages.ru.menu.answerLetter, '✍️ Javob xati tayyorlash', '✍️ Подготовить ответ на письмо'], async (ctx) => {
     const lang = await getUserLang(ctx.from!.id.toString());
     ctx.session.step = 'LETTER_FILE';
     ctx.session.pendingFiles = [];
@@ -156,7 +133,7 @@ export function createBot(): Bot<MyContext> {
   });
 
   // Main Menu: 💰 Tariflar
-  bot.hears([messages.uz.menu.tariffs, messages.ru.menu.tariffs], async (ctx) => {
+  bot.hears([messages.uz.menu.tariffs, messages.ru.menu.tariffs, '💰 Tariflar', '💰 Тарифы'], async (ctx) => {
     const lang = await getUserLang(ctx.from!.id.toString());
     const services = await prisma.service.findMany({
       where: { isActive: true },
@@ -175,7 +152,7 @@ export function createBot(): Bot<MyContext> {
   });
 
   // Main Menu: 📋 Mening savollarim
-  bot.hears([messages.uz.menu.myQuestions, messages.ru.menu.myQuestions], async (ctx) => {
+  bot.hears([messages.uz.menu.myQuestions, messages.ru.menu.myQuestions, '📋 Mening savollarim', '📋 Мои вопросы'], async (ctx) => {
     const tgId = ctx.from!.id.toString();
     const lang = await getUserLang(tgId);
 
@@ -212,7 +189,7 @@ export function createBot(): Bot<MyContext> {
   });
 
   // Main Menu: ℹ️ Qoidalar
-  bot.hears([messages.uz.menu.rules, messages.ru.menu.rules], async (ctx) => {
+  bot.hears([messages.uz.menu.rules, messages.ru.menu.rules, 'ℹ️ Qoidalar', 'ℹ️ Правила'], async (ctx) => {
     const lang = await getUserLang(ctx.from!.id.toString());
     const ruleKey = lang === 'ru' ? 'rules_ru' : 'rules_uz';
     const ruleSetting = await prisma.setting.findUnique({ where: { key: ruleKey } });
@@ -224,126 +201,153 @@ export function createBot(): Bot<MyContext> {
   });
 
   // Main Menu: 🌐 Tilni tanlash
-  bot.hears([messages.uz.menu.changeLang, messages.ru.menu.changeLang], async (ctx) => {
+  bot.hears([messages.uz.menu.changeLang, messages.ru.menu.changeLang, '🌐 Tilni tanlash', '🌐 Выбрать язык'], async (ctx) => {
     await ctx.reply(messages['uz'].chooseLanguage, {
       reply_markup: getLanguageKeyboard(),
     });
   });
 
-  // Callback: View question detail
-  bot.callbackQuery(/^view_q:(d+)$/, async (ctx) => {
-    const questionId = parseInt(ctx.match[1], 10);
-    const lang = await getUserLang(ctx.from!.id.toString());
+  // ==========================================
+  // CALLBACK QUERY ROUTER (Prefix Matching)
+  // ==========================================
+  bot.on('callback_query:data', async (ctx, next) => {
+    const data = ctx.callbackQuery.data;
 
-    const q = await prisma.question.findUnique({
-      where: { id: questionId },
-      include: { service: true, answer: true, payments: true },
-    });
+    // 1. Language selector
+    if (data === 'set_lang_uz' || data === 'set_lang_ru') {
+      const tgId = ctx.from.id.toString();
+      const newLang: Language = data === 'set_lang_ru' ? 'ru' : 'uz';
 
-    if (!q) {
-      await ctx.answerCallbackQuery({ text: 'Savol topilmadi' });
+      await prisma.user.upsert({
+        where: { telegramId: tgId },
+        update: { language: newLang },
+        create: {
+          telegramId: tgId,
+          username: ctx.from.username || null,
+          firstName: ctx.from.first_name || null,
+          language: newLang,
+        },
+      });
+
+      await ctx.answerCallbackQuery();
+      await ctx.reply(messages[newLang].languageChanged, {
+        reply_markup: getMainMenu(newLang),
+      });
       return;
     }
 
-    const serviceName = (lang === 'ru' ? q.service?.nameRu : q.service?.nameUz) || 'Soliq savoli';
-    const statusLabel = messages[lang].statusLabels[q.status as keyof typeof messages.uz.statusLabels] || q.status;
-    const dateStr = q.createdAt.toLocaleDateString('uz-UZ');
+    // 2. Select service / tariff
+    if (data.startsWith('select_service:')) {
+      const serviceId = parseInt(data.replace('select_service:', ''), 10);
+      ctx.session.pendingServiceId = serviceId;
+      await ctx.answerCallbackQuery({ text: 'Tarif tanlandi!' });
 
-    let text = messages[lang].questionDetails(q.questionNumber, serviceName, statusLabel, dateStr, q.questionText);
-
-    if (q.answer) {
-      text += `\n\n────────────────────\n`;
-      text += messages[lang].answerReceivedHeader(q.questionNumber);
-      text += `\n\n**Tahlil:**\n${q.answer.answerText}`;
-      if (q.answer.legalBasis) {
-        text += `\n\n**Huquqiy asos:**\n${q.answer.legalBasis}`;
-      }
-      if (q.answer.conclusion) {
-        text += `\n\n**Xulosa:**\n${q.answer.conclusion}`;
-      }
-    } else if (q.status === 'PAYMENT_PENDING') {
-      text += `\n\n💳 *To‘lov tekshirilmoqda. Tez orada ekspert ko‘rib chiqishni boshlaydi.*`;
+      // Automatically proceed to create question and show payment details!
+      await finalizeQuestionCreation(ctx);
+      return;
     }
 
-    await ctx.answerCallbackQuery();
-    await ctx.reply(text, { parse_mode: 'Markdown' });
-  });
+    // 3. View question details
+    if (data.startsWith('view_q:')) {
+      const questionId = parseInt(data.replace('view_q:', ''), 10);
+      const lang = await getUserLang(ctx.from.id.toString());
 
-  // Callback: Service selection
-  bot.callbackQuery(/^select_service:(d+)$/, async (ctx) => {
-    const serviceId = parseInt(ctx.match[1], 10);
-    const lang = await getUserLang(ctx.from!.id.toString());
-    ctx.session.pendingServiceId = serviceId;
-    ctx.session.step = 'AWAITING_FILES';
+      const q = await prisma.question.findUnique({
+        where: { id: questionId },
+        include: { service: true, answer: true, payments: true },
+      });
 
-    const service = await prisma.service.findUnique({ where: { id: serviceId } });
-    const serviceName = (lang === 'ru' ? service?.nameRu : service?.nameUz) || '';
-
-    await ctx.answerCallbackQuery();
-    await ctx.reply(
-      `💼 **Tanlangan tarif:** ${serviceName}\n\n${messages[lang].filePrompt}`,
-      {
-        parse_mode: 'Markdown',
-        reply_markup: getFileStepKeyboard(lang),
+      if (!q) {
+        await ctx.answerCallbackQuery({ text: 'Savol topilmadi' });
+        return;
       }
-    );
+
+      const serviceName = (lang === 'ru' ? q.service?.nameRu : q.service?.nameUz) || 'Soliq savoli';
+      const statusLabel = messages[lang].statusLabels[q.status as keyof typeof messages.uz.statusLabels] || q.status;
+      const dateStr = q.createdAt.toLocaleDateString('uz-UZ');
+
+      let text = messages[lang].questionDetails(q.questionNumber, serviceName, statusLabel, dateStr, q.questionText);
+
+      if (q.answer) {
+        text += `\n\n────────────────────\n`;
+        text += messages[lang].answerReceivedHeader(q.questionNumber);
+        text += `\n\n**Tahlil:**\n${q.answer.answerText}`;
+        if (q.answer.legalBasis) {
+          text += `\n\n**Huquqiy asos:**\n${q.answer.legalBasis}`;
+        }
+        if (q.answer.conclusion) {
+          text += `\n\n**Xulosa:**\n${q.answer.conclusion}`;
+        }
+      } else if (q.status === 'PAYMENT_PENDING') {
+        text += `\n\n💳 *To‘lov tekshirilmoqda. Tez orada ekspert ko‘rib chiqishni boshlaydi.*`;
+      }
+
+      await ctx.answerCallbackQuery();
+      await ctx.reply(text, { parse_mode: 'Markdown' });
+      return;
+    }
+
+    // 4. Admin approve payment
+    if (data.startsWith('approve_payment:')) {
+      const qId = parseInt(data.replace('approve_payment:', ''), 10);
+      const tgId = ctx.from.id.toString();
+
+      if (tgId !== config.adminTelegramId) {
+        await ctx.answerCallbackQuery({ text: 'Sizda ruxsat yo‘q!' });
+        return;
+      }
+
+      const payment = await prisma.payment.findFirst({
+        where: { questionId: qId, status: 'PENDING' },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      if (payment) {
+        await approvePayment(payment.id);
+        await ctx.answerCallbackQuery({ text: 'To‘lov tasdiqlandi!' });
+        await ctx.editMessageCaption({
+          caption: (ctx.msg?.caption || '') + '\n\n✅ **TO‘LOV TASDIQLANDI!**',
+          parse_mode: 'Markdown',
+        });
+      } else {
+        await ctx.answerCallbackQuery({ text: 'Tasdiqlanuvchi to‘lov topilmadi.' });
+      }
+      return;
+    }
+
+    // 5. Admin reject payment
+    if (data.startsWith('reject_payment:')) {
+      const qId = parseInt(data.replace('reject_payment:', ''), 10);
+      const tgId = ctx.from.id.toString();
+
+      if (tgId !== config.adminTelegramId) {
+        await ctx.answerCallbackQuery({ text: 'Sizda ruxsat yo‘q!' });
+        return;
+      }
+
+      const payment = await prisma.payment.findFirst({
+        where: { questionId: qId, status: 'PENDING' },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      if (payment) {
+        await rejectPayment(payment.id);
+        await ctx.answerCallbackQuery({ text: 'To‘lov rad etildi.' });
+        await ctx.editMessageCaption({
+          caption: (ctx.msg?.caption || '') + '\n\n❌ **TO‘LOV RAD ETILDI!**',
+          parse_mode: 'Markdown',
+        });
+      }
+      return;
+    }
+
+    await next();
   });
 
   // Skip files button
-  bot.hears([messages.uz.skipFiles, messages.ru.skipFiles], async (ctx) => {
+  bot.hears([messages.uz.skipFiles, messages.ru.skipFiles, '➡️ Hujjatsiz davom etish', '➡️ Продолжить без документов'], async (ctx) => {
     if (ctx.session.step === 'AWAITING_FILES') {
       await finalizeQuestionCreation(ctx);
-    }
-  });
-
-  // Admin Callbacks: approve_payment, reject_payment
-  bot.callbackQuery(/^approve_payment:(d+)$/, async (ctx) => {
-    const qId = parseInt(ctx.match[1], 10);
-    const tgId = ctx.from.id.toString();
-
-    if (tgId !== config.adminTelegramId) {
-      await ctx.answerCallbackQuery({ text: 'Sizda ruxsat yo‘q!' });
-      return;
-    }
-
-    const payment = await prisma.payment.findFirst({
-      where: { questionId: qId, status: 'PENDING' },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    if (payment) {
-      await approvePayment(payment.id);
-      await ctx.answerCallbackQuery({ text: 'To‘lov tasdiqlandi!' });
-      await ctx.editMessageCaption({
-        caption: (ctx.msg?.caption || '') + '\n\n✅ **TO‘LOV TASDIQLANDI!**',
-        parse_mode: 'Markdown',
-      });
-    } else {
-      await ctx.answerCallbackQuery({ text: 'Tasdiqlanuvchi to‘lov topilmadi.' });
-    }
-  });
-
-  bot.callbackQuery(/^reject_payment:(d+)$/, async (ctx) => {
-    const qId = parseInt(ctx.match[1], 10);
-    const tgId = ctx.from.id.toString();
-
-    if (tgId !== config.adminTelegramId) {
-      await ctx.answerCallbackQuery({ text: 'Sizda ruxsat yo‘q!' });
-      return;
-    }
-
-    const payment = await prisma.payment.findFirst({
-      where: { questionId: qId, status: 'PENDING' },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    if (payment) {
-      await rejectPayment(payment.id);
-      await ctx.answerCallbackQuery({ text: 'To‘lov rad etildi.' });
-      await ctx.editMessageCaption({
-        caption: (ctx.msg?.caption || '') + '\n\n❌ **TO‘LOV RAD ETILDI!**',
-        parse_mode: 'Markdown',
-      });
     }
   });
 
@@ -555,7 +559,11 @@ export function createBot(): Bot<MyContext> {
     const summary = messages[lang].orderSummary(questionNumber, serviceName, priceFormatted);
     const payInstruction = messages[lang].paymentInstructions(cardNum, cardHolder, priceFormatted);
 
-    await ctx.reply(`${summary}\n\n${payInstruction}`, {
+    const docNote = lang === 'ru' 
+      ? "\n\n📎 *Вы также можете отправить любые сопутствующие документы (договор, акт, счет) в любое время.*"
+      : "\n\n📎 *Shuningdek, savolingizga tegishli shartnoma yoki hujjatlar bo‘lsa, istalgan paytda yuborishingiz mumkin.*";
+
+    await ctx.reply(`${summary}\n\n${payInstruction}${docNote}`, {
       parse_mode: 'Markdown',
       reply_markup: getCancelKeyboard(lang),
     });
