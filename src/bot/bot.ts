@@ -502,6 +502,13 @@ export function createBot(): Bot<MyContext> {
 
       ctx.session.draftQuestionId = draftQ.id;
 
+      // Immediately notify admin about the incoming question
+      try {
+        await notifyAdminNewQuestion(draftQ.id);
+      } catch (e) {
+        console.error('Admin notification error on new question:', e);
+      }
+
       // Show services for selection with draftId embedded in callback data!
       const services = await prisma.service.findMany({
         where: { isActive: true },

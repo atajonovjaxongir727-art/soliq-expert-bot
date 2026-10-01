@@ -492,7 +492,6 @@ function escapeHtml(str) {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-
 // ==========================================
 // REAL-TIME NOTIFICATIONS & LIVE POLLING
 // ==========================================
@@ -500,11 +499,11 @@ let soundEnabled = localStorage.getItem('se_sound_enabled') !== 'false';
 let livePollingInterval = null;
 let lastKnownQuestionId = null;
 let lastKnownPaymentId = null;
+let lastPendingCount = null;
 let isInitialPoll = true;
 let unreadNotificationsCount = 0;
-const originalDocTitle = document.title || 'Soliq Expert - Admin Panel';
+const originalDocTitle = document.title || 'Soliq Expert — Boshqaruv Paneli';
 
-// Web Audio API Context (Lazily initialized on first user click)
 let audioCtx = null;
 function getAudioContext() {
   if (!audioCtx) {
@@ -512,14 +511,14 @@ function getAudioContext() {
     if (AudioCtx) audioCtx = new AudioCtx();
   }
   if (audioCtx && audioCtx.state === 'suspended') {
-    audioCtx.resume();
+    audioCtx.resume().catch(() => {});
   }
   return audioCtx;
 }
 
 window.addEventListener('click', () => {
   if (audioCtx && audioCtx.state === 'suspended') {
-    audioCtx.resume();
+    audioCtx.resume().catch(() => {});
   }
 }, { once: false });
 
@@ -530,29 +529,27 @@ function playNotificationSound() {
     if (!ctx) return;
     const now = ctx.currentTime;
 
-    // First tone: 659.25Hz (E5)
     const osc1 = ctx.createOscillator();
     const gain1 = ctx.createGain();
     osc1.type = 'sine';
-    osc1.frequency.setValueAtTime(659.25, now);
-    gain1.gain.setValueAtTime(0.2, now);
-    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+    osc1.frequency.setValueAtTime(587.33, now);
+    gain1.gain.setValueAtTime(0.3, now);
+    gain1.gain.exponentialRampToValueAtTime(0.0001, now + 0.5);
     osc1.connect(gain1);
     gain1.connect(ctx.destination);
     osc1.start(now);
-    osc1.stop(now + 0.45);
+    osc1.stop(now + 0.5);
 
-    // Second tone: 880Hz (A5)
     const osc2 = ctx.createOscillator();
     const gain2 = ctx.createGain();
     osc2.type = 'sine';
     osc2.frequency.setValueAtTime(880, now + 0.12);
-    gain2.gain.setValueAtTime(0.25, now + 0.12);
-    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.75);
+    gain2.gain.setValueAtTime(0.35, now + 0.12);
+    gain2.gain.exponentialRampToValueAtTime(0.0001, now + 0.85);
     osc2.connect(gain2);
     gain2.connect(ctx.destination);
     osc2.start(now + 0.12);
-    osc2.stop(now + 0.75);
+    osc2.stop(now + 0.85);
   } catch (e) {
     console.debug('Notification sound error:', e);
   }
@@ -564,6 +561,17 @@ function toggleSound() {
   updateSoundUI();
   if (soundEnabled) {
     playNotificationSound();
+    showToast({
+      title: 'Ovoz yoqildi',
+      message: 'Bildirishnoma ovozi muvaffaqiyatli yoqildi.',
+      badge: 'Sozlama'
+    });
+  } else {
+    showToast({
+      title: 'Ovoz o‘chirildi',
+      message: 'Bildirishnoma ovozi o‘chirildi.',
+      badge: 'Sozlama'
+    });
   }
 }
 
@@ -580,9 +588,36 @@ function updateSoundUI() {
   }
 }
 
+function testNotificationSystem() {
+  const ctx = getAudioContext();
+  if (ctx && ctx.state === 'suspended') {
+    ctx.resume().catch(() => {});
+  }
+  playNotificationSound();
+
+  showToast({
+    title: '🔔 Bildirishnoma sinovi muvaffaqiyatli!',
+    message: 'Admin panelda ovozli qo‘ng‘iroq va ekrandagi xabarlar a’lo darajada ishlamoqda.',
+    badge: 'Sinov testi'
+  });
+
+  if ('Notification' in window) {
+    if (Notification.permission === 'granted') {
+      showBrowserNotification('🔔 Bildirishnoma testi!', 'Brauzer orqa fonda turganda ham yangi savollarni xabar beradi.');
+    } else if (Notification.permission === 'default') {
+      Notification.requestPermission().then(perm => {
+        updateBrowserNotifUI();
+        if (perm === 'granted') {
+          showBrowserNotification('🔔 Bildirishnoma testi!', 'Brauzer orqa fonda turganda ham yangi savollarni xabar beradi.');
+        }
+      });
+    }
+  }
+}
+
 function enableBrowserNotifications() {
   if (!('Notification' in window)) {
-    alert('Brauzeringiz bildirishnomalarni qo‘llab-quvvatlamaydi.');
+    alert('Brauzeringiz push bildirishnomalarni qo‘llab-quvvatlamaydi.');
     return;
   }
   Notification.requestPermission().then(permission => {
@@ -628,7 +663,7 @@ function showBrowserNotification(title, body, onClick) {
 function updateDocumentTitle(count) {
   unreadNotificationsCount += count;
   if (unreadNotificationsCount > 0) {
-    document.title = `(${unreadNotificationsCount}) 🔔 Yangi savol! - Soliq Expert`;
+    document.title = `(${unreadNotificationsCount}) 🔔 Yangi savol! — Soliq Expert`;
   }
 }
 
@@ -642,26 +677,26 @@ function showToast({ title, message, badge, questionId, paymentId, isReceipt }) 
   if (!container) return;
 
   const toast = document.createElement('div');
-  toast.className = 'transform transition-all duration-300 ease-out translate-x-full opacity-0 bg-white border border-slate-200 rounded-2xl shadow-2xl p-4 flex flex-col space-y-2 pointer-events-auto border-l-4 ' + (isReceipt ? 'border-l-emerald-500' : 'border-l-blue-600');
-  
+  toast.className = 'bg-white border border-slate-200 rounded-2xl shadow-2xl p-4 flex flex-col space-y-2 pointer-events-auto border-l-4 ' + (isReceipt ? 'border-l-emerald-500' : 'border-l-blue-600') + ' transition-all duration-300';
+
   toast.innerHTML = `
     <div class="flex items-start justify-between">
       <div class="flex items-center space-x-2">
         <span class="text-xl">${isReceipt ? '🧾' : '🔔'}</span>
         <span class="font-bold text-sm text-slate-900">${escapeHtml(title)}</span>
       </div>
-      <button onclick="this.closest('.transform').remove()" class="text-slate-400 hover:text-slate-600 text-sm font-bold p-1">✕</button>
+      <button onclick="this.closest('.bg-white').remove()" class="text-slate-400 hover:text-slate-600 text-sm font-bold p-1">✕</button>
     </div>
     <p class="text-xs text-slate-600 leading-relaxed">${escapeHtml(message)}</p>
     <div class="flex items-center justify-between pt-1">
       <span class="text-[11px] font-semibold text-slate-400">${badge || 'Hozirgina'}</span>
       ${questionId ? `
-        <button onclick="openQuestionModal(${questionId}); this.closest('.transform').remove();" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-sm transition">
+        <button onclick="openQuestionModal(${questionId}); this.closest('.bg-white').remove();" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-sm transition">
           Ko‘rish / Javob ↗
         </button>
       ` : ''}
       ${paymentId ? `
-        <button onclick="switchTab('payments'); this.closest('.transform').remove();" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-sm transition">
+        <button onclick="switchTab('payments'); this.closest('.bg-white').remove();" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-sm transition">
           To‘lovni ko‘rish ↗
         </button>
       ` : ''}
@@ -670,20 +705,17 @@ function showToast({ title, message, badge, questionId, paymentId, isReceipt }) 
 
   container.appendChild(toast);
 
-  requestAnimationFrame(() => {
-    toast.classList.remove('translate-x-full', 'opacity-0');
-  });
-
   setTimeout(() => {
-    toast.classList.add('translate-x-full', 'opacity-0');
-    setTimeout(() => toast.remove(), 350);
-  }, 9000);
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateX(100%)';
+    setTimeout(() => toast.remove(), 400);
+  }, 12000);
 }
 
 async function startLivePolling() {
   if (livePollingInterval) clearInterval(livePollingInterval);
   await checkLiveUpdates();
-  livePollingInterval = setInterval(checkLiveUpdates, 6000);
+  livePollingInterval = setInterval(checkLiveUpdates, 5000);
 }
 
 function stopLivePolling() {
@@ -702,10 +734,11 @@ async function checkLiveUpdates() {
       api('/api/dashboard/stats'),
     ]);
 
-    // Update pending count badge on sidebar
+    const pendingTotal = (stats?.questions?.paymentPending || 0) + (stats?.questions?.inProgress || 0);
+
+    // Update pending badge on sidebar
     const pendingBadge = document.getElementById('badgePendingQuestions');
-    if (pendingBadge && stats && stats.questions) {
-      const pendingTotal = (stats.questions.paymentPending || 0) + (stats.questions.inProgress || 0);
+    if (pendingBadge) {
       if (pendingTotal > 0) {
         pendingBadge.textContent = pendingTotal;
         pendingBadge.classList.remove('hidden');
@@ -714,78 +747,96 @@ async function checkLiveUpdates() {
       }
     }
 
-    // Check for new questions
     const questions = qData.questions || [];
-    if (questions.length > 0) {
-      const maxQId = Math.max(...questions.map(q => q.id));
+    const maxQId = questions.length > 0 ? Math.max(...questions.map(q => q.id)) : 0;
+    const payments = Array.isArray(pData) ? pData : [];
+    const maxPId = payments.length > 0 ? Math.max(...payments.map(p => p.id)) : 0;
 
-      if (isInitialPoll) {
-        lastKnownQuestionId = maxQId;
-      } else if (lastKnownQuestionId !== null && maxQId > lastKnownQuestionId) {
-        const newQuestions = questions.filter(q => q.id > lastKnownQuestionId);
-        newQuestions.reverse().forEach(q => {
-          playNotificationSound();
-          const userStr = q.user?.username ? '@' + q.user.username : (q.user?.firstName || 'Mijoz');
-          const serviceStr = q.service?.nameUz || 'Soliq maslahati';
-          const previewText = q.questionText ? q.questionText.slice(0, 100) : 'Yangi savol';
+    if (isInitialPoll) {
+      lastKnownQuestionId = maxQId;
+      lastKnownPaymentId = maxPId;
+      lastPendingCount = pendingTotal;
 
-          showToast({
-            title: 'Yangi savol kelib tushdi! #' + q.questionNumber,
-            message: `${userStr} (${serviceStr}): "${previewText}..."`,
-            badge: `${(q.price || 0).toLocaleString('uz-UZ')} so‘m`,
-            questionId: q.id,
-          });
-
-          showBrowserNotification(
-            '🔔 Yangi savol: #' + q.questionNumber,
-            `${userStr}: ${previewText}`,
-            () => openQuestionModal(q.id)
-          );
-
-          updateDocumentTitle(1);
+      if (pendingTotal > 0) {
+        showToast({
+          title: 'Kutilayotgan savollar bor',
+          message: `Hozirda javob berilishi yoki tekshirilishi kerak bo‘lgan ${pendingTotal} ta savol mavjud.`,
+          badge: `${pendingTotal} ta savol`
         });
-
-        lastKnownQuestionId = maxQId;
-
-        // Auto-refresh active view
-        if (currentTab === 'dashboard') loadDashboard();
-        else if (currentTab === 'questions') loadQuestions();
       }
+      isInitialPoll = false;
+      return;
     }
 
-    // Check for new payments
-    if (Array.isArray(pData) && pData.length > 0) {
-      const maxPId = Math.max(...pData.map(p => p.id));
-      if (isInitialPoll) {
-        lastKnownPaymentId = maxPId;
-      } else if (lastKnownPaymentId !== null && maxPId > lastKnownPaymentId) {
-        const newPayments = pData.filter(p => p.id > lastKnownPaymentId);
-        newPayments.reverse().forEach(p => {
-          playNotificationSound();
-          const userStr = p.user?.username ? '@' + p.user.username : (p.user?.firstName || 'Mijoz');
-          showToast({
-            title: 'Yangi to‘lov cheki keldi!',
-            message: `${userStr} ${p.amount.toLocaleString('uz-UZ')} so‘m to‘lov chekini yubordi.`,
-            badge: 'To‘lov #' + p.id,
-            paymentId: p.id,
-            isReceipt: true,
-          });
+    // Check if new questions arrived
+    if (lastKnownQuestionId !== null && maxQId > lastKnownQuestionId) {
+      const newQuestions = questions.filter(q => q.id > lastKnownQuestionId);
+      newQuestions.reverse().forEach(q => {
+        playNotificationSound();
+        const userStr = q.user?.username ? '@' + q.user.username : (q.user?.firstName || 'Mijoz');
+        const serviceStr = q.service?.nameUz || 'Soliq maslahati';
+        const previewText = q.questionText ? q.questionText.slice(0, 100) : 'Yangi savol';
 
-          showBrowserNotification(
-            '🧾 Yangi to‘lov cheki!',
-            `${userStr}: ${p.amount.toLocaleString('uz-UZ')} so‘m to‘lov cheki kelib tushdi.`,
-            () => switchTab('payments')
-          );
+        showToast({
+          title: 'Yangi savol kelib tushdi! #' + q.questionNumber,
+          message: `${userStr} (${serviceStr}): "${previewText}..."`,
+          badge: `${(q.price || 0).toLocaleString('uz-UZ')} so‘m`,
+          questionId: q.id,
         });
 
-        lastKnownPaymentId = maxPId;
-        if (currentTab === 'payments') loadPayments();
-        if (currentTab === 'dashboard') loadDashboard();
-      }
+        showBrowserNotification(
+          '🔔 Yangi savol: #' + q.questionNumber,
+          `${userStr}: ${previewText}`,
+          () => openQuestionModal(q.id)
+        );
+
+        updateDocumentTitle(1);
+      });
+
+      lastKnownQuestionId = maxQId;
+      if (currentTab === 'dashboard') loadDashboard();
+      else if (currentTab === 'questions') loadQuestions();
+    } else if (lastPendingCount !== null && pendingTotal > lastPendingCount) {
+      // Pending count increased (status transitioned to PAYMENT_PENDING)
+      playNotificationSound();
+      showToast({
+        title: 'Yangi savol yoki to‘lov!',
+        message: 'Yangi soliq maslahati yoki to‘lov kelib tushdi.',
+        badge: 'Yangi faollik'
+      });
+      updateDocumentTitle(1);
+      if (currentTab === 'dashboard') loadDashboard();
+      else if (currentTab === 'questions') loadQuestions();
+    }
+    lastPendingCount = pendingTotal;
+
+    // Check if new payments arrived
+    if (lastKnownPaymentId !== null && maxPId > lastKnownPaymentId) {
+      const newPayments = payments.filter(p => p.id > lastKnownPaymentId);
+      newPayments.reverse().forEach(p => {
+        playNotificationSound();
+        const userStr = p.user?.username ? '@' + p.user.username : (p.user?.firstName || 'Mijoz');
+        showToast({
+          title: 'Yangi to‘lov cheki keldi!',
+          message: `${userStr} ${p.amount.toLocaleString('uz-UZ')} so‘m to‘lov chekini yubordi.`,
+          badge: 'To‘lov #' + p.id,
+          paymentId: p.id,
+          isReceipt: true,
+        });
+
+        showBrowserNotification(
+          '🧾 Yangi to‘lov cheki!',
+          `${userStr}: ${p.amount.toLocaleString('uz-UZ')} so‘m to‘lov cheki kelib tushdi.`,
+          () => switchTab('payments')
+        );
+      });
+
+      lastKnownPaymentId = maxPId;
+      if (currentTab === 'payments') loadPayments();
+      if (currentTab === 'dashboard') loadDashboard();
     }
 
-    isInitialPoll = false;
   } catch (err) {
-    console.debug('[LivePoll] background check skipped:', err.message);
+    console.debug('[LivePoll] skipped:', err.message);
   }
 }
