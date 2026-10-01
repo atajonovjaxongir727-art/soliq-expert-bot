@@ -1,0 +1,139 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          Int        @id @default(autoincrement())
+  telegramId  String     @unique
+  username    String?
+  firstName   String?
+  lastName    String?
+  language    String     @default("uz")
+  phone       String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  questions   Question[]
+  payments    Payment[]
+}
+
+model Service {
+  id            Int        @id @default(autoincrement())
+  code          String     @unique
+  nameUz        String
+  nameRu        String
+  descriptionUz String
+  descriptionRu String
+  price         Int
+  priceText     String?
+  isActive      Boolean    @default(true)
+  sortOrder     Int        @default(0)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  questions     Question[]
+}
+
+model Question {
+  id              Int            @id @default(autoincrement())
+  questionNumber  Int            @unique
+  userId          Int
+  user            User           @relation(fields: [userId], references: [id])
+  serviceId       Int?
+  service         Service?       @relation(fields: [serviceId], references: [id])
+  questionText    String
+  enterpriseName  String?
+  status          String         @default("NEW")
+  price           Int            @default(0)
+  adminNotes      String?
+  
+  aiCategory      String?
+  aiSummary       String?
+  aiDraftAnswer   String?
+  aiLegalBasis    String?
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  files           QuestionFile[]
+  payments        Payment[]
+  answer          Answer?
+}
+
+model QuestionFile {
+  id          Int       @id @default(autoincrement())
+  questionId  Int
+  question    Question  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  fileId      String
+  fileType    String
+  fileName    String?
+  fileSize    Int?
+  localPath   String?
+  mimeType    String?
+  createdAt   DateTime  @default(now())
+}
+
+model Payment {
+  id              Int       @id @default(autoincrement())
+  questionId      Int
+  question        Question  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  userId          Int
+  user            User      @relation(fields: [userId], references: [id])
+  amount          Int
+  currency        String    @default("UZS")
+  paymentMethod   String    @default("MANUAL")
+  status          String    @default("PENDING")
+  receiptFileId   String?
+  receiptImageUrl String?
+  transactionId   String?
+  confirmedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model Answer {
+  id          Int       @id @default(autoincrement())
+  questionId  Int       @unique
+  question    Question  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  adminId     Int?
+  admin       Admin?    @relation(fields: [adminId], references: [id])
+  answerText  String
+  legalBasis  String?
+  conclusion  String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Admin {
+  id           Int       @id @default(autoincrement())
+  telegramId   String?   @unique
+  username     String    @unique
+  passwordHash String
+  name         String
+  role         String    @default("ADMIN")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  answers      Answer[]
+}
+
+model Setting {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique
+  value       String
+  description String?
+  updatedAt   DateTime @updatedAt
+}
+
+model ActivityLog {
+  id          Int      @id @default(autoincrement())
+  eventType   String
+  description String
+  metadata    String?
+  createdAt   DateTime @default(now())
+}

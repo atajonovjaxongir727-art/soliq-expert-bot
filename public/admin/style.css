@@ -1,0 +1,8 @@
+﻿[x-cloak] { display: none !important; }
+.badge-NEW { background-color: #e0f2fe; color: #0369a1; border-color: #bae6fd; }
+.badge-PAYMENT_PENDING { background-color: #fef3c7; color: #b45309; border-color: #fde68a; }
+.badge-PAID { background-color: #dcfce7; color: #15803d; border-color: #bbf7d0; }
+.badge-IN_PROGRESS { background-color: #f3e8ff; color: #7e22ce; border-color: #e9d5ff; }
+.badge-ANSWERED { background-color: #d1fae5; color: #047857; border-color: #a7f3d0; }
+.badge-COMPLETED { background-color: #f1f5f9; color: #475569; border-color: #e2e8f0; }
+.badge-CANCELLED { background-color: #fee2e2; color: #b91c1c; border-color: #fecaca; }

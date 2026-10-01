@@ -1,0 +1,466 @@
+﻿<!DOCTYPE html>
+<html lang="uz" class="h-full bg-slate-50">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Soliq Expert — Boshqaruv Paneli</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/admin/style.css">
+</head>
+<body class="h-full flex flex-col font-sans text-slate-800 antialiased">
+
+  <!-- LOGIN SECTION -->
+  <div id="loginSection" class="min-h-screen flex items-center justify-center bg-slate-900 px-4 py-12">
+    <div class="max-w-md w-full bg-white rounded-2xl shadow-2xl p-8 space-y-6">
+      <div class="text-center">
+        <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-600 text-white shadow-lg mb-4">
+          <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        </div>
+        <h2 class="text-2xl font-bold text-slate-900">Soliq Expert Admin</h2>
+        <p class="text-sm text-slate-500 mt-1">O‘zbekiston soliq maslahatlari boshqaruv tizimi</p>
+      </div>
+
+      <div id="loginError" class="hidden p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg"></div>
+
+      <form id="loginForm" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Login</label>
+          <input type="text" id="usernameInput" required value="admin" class="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm transition">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Parol</label>
+          <input type="password" id="passwordInput" required value="admin123password" class="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm transition">
+        </div>
+        <button type="submit" class="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-md hover:shadow-lg transition duration-150 flex items-center justify-center space-x-2">
+          <span>Tizimga kirish</span>
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- MAIN APP CONTAINER -->
+  <div id="appSection" class="hidden flex h-screen overflow-hidden bg-slate-100">
+    
+    <!-- SIDEBAR -->
+    <aside class="w-64 bg-slate-900 text-slate-300 flex flex-col flex-shrink-0">
+      <div class="h-16 flex items-center px-6 bg-slate-950 font-bold text-lg text-white space-x-3 tracking-wide">
+        <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-black text-sm">SE</div>
+        <span>Soliq Expert</span>
+      </div>
+
+      <nav class="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
+        <a href="#dashboard" onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-item flex items-center space-x-3 px-3 py-2.5 rounded-xl font-medium text-sm text-white bg-blue-600">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+          <span>Dashboard</span>
+        </a>
+
+        <a href="#questions" onclick="switchTab('questions')" id="nav-questions" class="nav-item flex items-center space-x-3 px-3 py-2.5 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800 transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+          <span>Savollar</span>
+          <span id="badgePendingQuestions" class="ml-auto bg-amber-500 text-slate-950 font-bold text-xs px-2 py-0.5 rounded-full hidden">0</span>
+        </a>
+
+        <a href="#payments" onclick="switchTab('payments')" id="nav-payments" class="nav-item flex items-center space-x-3 px-3 py-2.5 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800 transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+          <span>To‘lovlar</span>
+        </a>
+
+        <a href="#services" onclick="switchTab('services')" id="nav-services" class="nav-item flex items-center space-x-3 px-3 py-2.5 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800 transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span>Tariflar & Xizmatlar</span>
+        </a>
+
+        <a href="#settings" onclick="switchTab('settings')" id="nav-settings" class="nav-item flex items-center space-x-3 px-3 py-2.5 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800 transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          <span>Sozlamalar & Qoidalar</span>
+        </a>
+
+        <a href="#logs" onclick="switchTab('logs')" id="nav-logs" class="nav-item flex items-center space-x-3 px-3 py-2.5 rounded-xl font-medium text-sm text-slate-400 hover:text-white hover:bg-slate-800 transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          <span>Loglar & Backup</span>
+        </a>
+      </nav>
+
+      <!-- USER FOOTER -->
+      <div class="p-4 bg-slate-950 border-t border-slate-800 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <div class="w-9 h-9 rounded-full bg-blue-700 flex items-center justify-center font-bold text-white text-sm">A</div>
+          <div>
+            <div id="adminNameDisplay" class="font-semibold text-sm text-white leading-tight">Admin</div>
+            <div class="text-xs text-slate-400">Bosh Administrator</div>
+          </div>
+        </div>
+        <button onclick="logout()" title="Chiqish" class="text-slate-400 hover:text-red-400 p-1.5 rounded-lg transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+        </button>
+      </div>
+    </aside>
+
+    <!-- CONTENT WRAPPER -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+      <!-- TOP NAVBAR -->
+      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8">
+        <div class="flex items-center space-x-3">
+          <h1 id="pageTitle" class="text-xl font-bold text-slate-800">Dashboard</h1>
+          <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse"></span>
+            Tizim Faol
+          </span>
+        </div>
+
+        <div class="flex items-center space-x-4">
+          <a href="https://t.me/Soliq_Expert_Bot" target="_blank" class="inline-flex items-center space-x-2 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition">
+            <span>@Soliq_Expert_Bot</span>
+          </a>
+          <button onclick="refreshData()" class="p-2 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition" title="Yangilash">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- MAIN SCROLLABLE VIEW -->
+      <main class="flex-1 overflow-y-auto p-8">
+
+        <!-- TAB 1: DASHBOARD -->
+        <section id="tab-dashboard" class="space-y-8">
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex items-center justify-between">
+              <div>
+                <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Jami Foydalanuvchilar</p>
+                <h3 id="statTotalUsers" class="text-3xl font-bold text-slate-900 mt-2">0</h3>
+                <p class="text-xs text-slate-400 mt-1">Telegram bot a'zolari</p>
+              </div>
+              <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xl">👥</div>
+            </div>
+
+            <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex items-center justify-between">
+              <div>
+                <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Bugungi Savollar</p>
+                <h3 id="statTodayQuestions" class="text-3xl font-bold text-slate-900 mt-2">0</h3>
+                <p class="text-xs text-slate-400 mt-1">Jami: <span id="statTotalQuestions">0</span> ta savol</p>
+              </div>
+              <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xl">📝</div>
+            </div>
+
+            <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex items-center justify-between">
+              <div>
+                <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Javob Kutilmoqda</p>
+                <h3 id="statInProgress" class="text-3xl font-bold text-amber-600 mt-2">0</h3>
+                <p class="text-xs text-slate-400 mt-1">To‘langan va jarayonda</p>
+              </div>
+              <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-xl">⏳</div>
+            </div>
+
+            <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex items-center justify-between">
+              <div>
+                <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Umumiy Tushum</p>
+                <h3 id="statTotalRevenue" class="text-2xl font-bold text-emerald-600 mt-2">0 so‘m</h3>
+                <p class="text-xs text-slate-400 mt-1">Bugun: <span id="statTodayRevenue" class="text-emerald-700 font-semibold">0</span></p>
+              </div>
+              <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-xl">💵</div>
+            </div>
+          </div>
+
+          <!-- REVENUE BREAKDOWN & STATUS SUMMARY -->
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
+              <h3 class="font-bold text-slate-900 text-base">💰 Tushum Davrlari</h3>
+              <div class="space-y-3">
+                <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50">
+                  <span class="text-sm font-medium text-slate-600">Bugungi tushum</span>
+                  <span id="periodTodayRevenue" class="text-sm font-bold text-slate-900">0 so‘m</span>
+                </div>
+                <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50">
+                  <span class="text-sm font-medium text-slate-600">Haftalik tushum</span>
+                  <span id="periodWeekRevenue" class="text-sm font-bold text-slate-900">0 so‘m</span>
+                </div>
+                <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50">
+                  <span class="text-sm font-medium text-slate-600">Oylik tushum</span>
+                  <span id="periodMonthRevenue" class="text-sm font-bold text-slate-900">0 so‘m</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4 lg:col-span-2">
+              <h3 class="font-bold text-slate-900 text-base">📊 Savollar Holati</h3>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div class="p-4 rounded-xl border border-amber-200 bg-amber-50">
+                  <p class="text-xs font-semibold text-amber-700">To‘lov kutilmoqda</p>
+                  <p id="statusPendingCount" class="text-2xl font-bold text-amber-800 mt-1">0</p>
+                </div>
+                <div class="p-4 rounded-xl border border-blue-200 bg-blue-50">
+                  <p class="text-xs font-semibold text-blue-700">To‘langan / Jarayonda</p>
+                  <p id="statusPaidCount" class="text-2xl font-bold text-blue-800 mt-1">0</p>
+                </div>
+                <div class="p-4 rounded-xl border border-emerald-200 bg-emerald-50">
+                  <p class="text-xs font-semibold text-emerald-700">Javob berilgan</p>
+                  <p id="statusAnsweredCount" class="text-2xl font-bold text-emerald-800 mt-1">0</p>
+                </div>
+                <div class="p-4 rounded-xl border border-slate-200 bg-slate-50">
+                  <p class="text-xs font-semibold text-slate-700">Yakunlangan</p>
+                  <p id="statusCompletedCount" class="text-2xl font-bold text-slate-800 mt-1">0</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- RECENT QUESTIONS TABLE -->
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+              <h3 class="font-bold text-slate-900">Oxirgi savollar</h3>
+              <button onclick="switchTab('questions')" class="text-xs font-semibold text-blue-600 hover:text-blue-700">Barchasini ko‘rish &rarr;</button>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-sm text-slate-600">
+                <thead class="bg-slate-50 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                  <tr>
+                    <th class="px-6 py-3.5">ID</th>
+                    <th class="px-6 py-3.5">Foydalanuvchi</th>
+                    <th class="px-6 py-3.5">Xizmat</th>
+                    <th class="px-6 py-3.5">Narx</th>
+                    <th class="px-6 py-3.5">Holati</th>
+                    <th class="px-6 py-3.5">Sana</th>
+                    <th class="px-6 py-3.5 text-right">Amal</th>
+                  </tr>
+                </thead>
+                <tbody id="dashboardRecentTable" class="divide-y divide-slate-100">
+                  <tr><td colspan="7" class="px-6 py-8 text-center text-slate-400">Yuklanmoqda...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 2: QUESTIONS LIST -->
+        <section id="tab-questions" class="hidden space-y-6">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div class="flex flex-wrap gap-2">
+              <button onclick="filterQuestions('ALL')" id="filter-ALL" class="filter-btn px-4 py-2 text-xs font-semibold rounded-xl bg-blue-600 text-white shadow-sm">Barchasi</button>
+              <button onclick="filterQuestions('PAYMENT_PENDING')" id="filter-PAYMENT_PENDING" class="filter-btn px-4 py-2 text-xs font-semibold rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50">To‘lov kutilmoqda</button>
+              <button onclick="filterQuestions('IN_PROGRESS')" id="filter-IN_PROGRESS" class="filter-btn px-4 py-2 text-xs font-semibold rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50">Jarayonda</button>
+              <button onclick="filterQuestions('ANSWERED')" id="filter-ANSWERED" class="filter-btn px-4 py-2 text-xs font-semibold rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50">Javob tayyor</button>
+              <button onclick="filterQuestions('COMPLETED')" id="filter-COMPLETED" class="filter-btn px-4 py-2 text-xs font-semibold rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50">Yakunlangan</button>
+            </div>
+
+            <div class="relative w-full md:w-80">
+              <input type="text" id="questionSearchInput" oninput="handleSearch(this.value)" placeholder="Savol, username yoki ism..." class="w-full px-4 py-2 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+            </div>
+          </div>
+
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-sm text-slate-600">
+                <thead class="bg-slate-50 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                  <tr>
+                    <th class="px-6 py-3.5">ID</th>
+                    <th class="px-6 py-3.5">Foydalanuvchi</th>
+                    <th class="px-6 py-3.5">Savol matni</th>
+                    <th class="px-6 py-3.5">Xizmat</th>
+                    <th class="px-6 py-3.5">Narx</th>
+                    <th class="px-6 py-3.5">Holati</th>
+                    <th class="px-6 py-3.5">Fayllar</th>
+                    <th class="px-6 py-3.5">Sana</th>
+                    <th class="px-6 py-3.5 text-right">Amal</th>
+                  </tr>
+                </thead>
+                <tbody id="questionsTableBody" class="divide-y divide-slate-100">
+                  <tr><td colspan="9" class="px-6 py-8 text-center text-slate-400">Savollar yuklanmoqda...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 3: PAYMENTS -->
+        <section id="tab-payments" class="hidden space-y-6">
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-200">
+              <h3 class="font-bold text-slate-900 text-base">💳 Barcha To‘lovlar</h3>
+              <p class="text-xs text-slate-500 mt-0.5">To‘lov cheklari va tasdiqlash holatlari</p>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-sm text-slate-600">
+                <thead class="bg-slate-50 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                  <tr>
+                    <th class="px-6 py-3.5">ID</th>
+                    <th class="px-6 py-3.5">Savol ID</th>
+                    <th class="px-6 py-3.5">Foydalanuvchi</th>
+                    <th class="px-6 py-3.5">Summa</th>
+                    <th class="px-6 py-3.5">Usul</th>
+                    <th class="px-6 py-3.5">Holati</th>
+                    <th class="px-6 py-3.5">Chek</th>
+                    <th class="px-6 py-3.5">Sana</th>
+                    <th class="px-6 py-3.5 text-right">Amal</th>
+                  </tr>
+                </thead>
+                <tbody id="paymentsTableBody" class="divide-y divide-slate-100">
+                  <tr><td colspan="9" class="px-6 py-8 text-center text-slate-400">To‘lovlar yuklanmoqda...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 4: SERVICES -->
+        <section id="tab-services" class="hidden space-y-6">
+          <div>
+            <h3 class="text-lg font-bold text-slate-900">Xizmat Tariflari</h3>
+            <p class="text-xs text-slate-500">Botda ko‘rsatiladigan barcha xizmatlar va ularning narxlari</p>
+          </div>
+          <div id="servicesContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+        </section>
+
+        <!-- TAB 5: SETTINGS -->
+        <section id="tab-settings" class="hidden space-y-6 max-w-4xl">
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-6">
+            <h3 class="text-lg font-bold text-slate-900 border-b border-slate-100 pb-3">💳 To‘lov Rekvizitlari</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Karta raqami (UZCARD / HUMO)</label>
+                <input type="text" id="settingCardInput" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Karta egasi / Tashkilot</label>
+                <input type="text" id="settingHolderInput" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+              </div>
+            </div>
+
+            <h3 class="text-lg font-bold text-slate-900 border-b border-slate-100 pb-3 pt-4">ℹ️ Qoidalar Matni</h3>
+            <div class="space-y-4">
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Qoidalar matni (O‘zbekcha)</label>
+                <textarea id="settingRulesUz" rows="3" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Qoidalar matni (Ruscha)</label>
+                <textarea id="settingRulesRu" rows="3" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
+              </div>
+            </div>
+
+            <div class="pt-4 flex justify-end">
+              <button onclick="saveSettings()" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl shadow-md transition">Sozlamalarni saqlash</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 6: LOGS -->
+        <section id="tab-logs" class="hidden space-y-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-lg font-bold text-slate-900">Tizim Jurnali (Logs) & Backup</h3>
+              <p class="text-xs text-slate-500">Hodisalar tarixi va bazani saqlab olish</p>
+            </div>
+            <a href="/api/logs/backup" download class="inline-flex items-center space-x-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md transition">
+              <span>📦 Bazani yuklab olish (.db backup)</span>
+            </a>
+          </div>
+
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-sm text-slate-600">
+                <thead class="bg-slate-50 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                  <tr>
+                    <th class="px-6 py-3.5">ID</th>
+                    <th class="px-6 py-3.5">Hodisa turi</th>
+                    <th class="px-6 py-3.5">Tavsif</th>
+                    <th class="px-6 py-3.5">Vaqt</th>
+                  </tr>
+                </thead>
+                <tbody id="logsTableBody" class="divide-y divide-slate-100">
+                  <tr><td colspan="4" class="px-6 py-8 text-center text-slate-400">Jurnallar yuklanmoqda...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- QUESTION DETAILS & ANSWER MODAL -->
+  <div id="questionModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+      <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+        <div>
+          <h3 id="modalQuestionNumber" class="font-bold text-lg">Savol #1024</h3>
+          <p id="modalUserSubtitle" class="text-xs text-slate-300">Foydalanuvchi: @username</p>
+        </div>
+        <button onclick="closeQuestionModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">✕</button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto p-6 space-y-6">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 rounded-xl bg-slate-50 border border-slate-100 text-xs">
+          <div>
+            <span class="text-slate-400 block font-medium">Xizmat turi:</span>
+            <span id="modalServiceName" class="font-bold text-slate-800 text-sm">Oddiy soliq savoli</span>
+          </div>
+          <div>
+            <span class="text-slate-400 block font-medium">Summa:</span>
+            <span id="modalPrice" class="font-bold text-slate-800 text-sm">30 000 so‘m</span>
+          </div>
+          <div>
+            <span class="text-slate-400 block font-medium">Holati:</span>
+            <span id="modalStatusBadge" class="inline-block mt-0.5 px-2.5 py-0.5 rounded-full text-xs font-bold">Yangi</span>
+          </div>
+          <div>
+            <span class="text-slate-400 block font-medium">Yaratilgan sana:</span>
+            <span id="modalCreatedAt" class="font-bold text-slate-800">01.10.2026</span>
+          </div>
+        </div>
+
+        <div>
+          <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">❓ Foydalanuvchi Savoli:</h4>
+          <div id="modalQuestionText" class="p-4 rounded-xl bg-slate-50 border border-slate-200 text-sm font-medium text-slate-800 whitespace-pre-wrap"></div>
+        </div>
+
+        <div id="modalFilesSection" class="hidden">
+          <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">📎 Biriktirilgan Hujjatlar:</h4>
+          <div id="modalFilesList" class="flex flex-wrap gap-2"></div>
+        </div>
+
+        <!-- AI Assistant Box -->
+        <div class="rounded-xl border border-blue-200 bg-blue-50/50 p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+              <span class="text-xl">🤖</span>
+              <span class="font-bold text-sm text-blue-900">AI Huquqiy Tahlil & Qoralama</span>
+            </div>
+            <button onclick="requestAiDraft()" id="btnAiDraft" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow transition">
+              Qoralama Yaratish
+            </button>
+          </div>
+          <div id="aiSummaryBox" class="text-xs text-slate-700 bg-white/90 p-3 rounded-lg border border-blue-100 hidden"></div>
+        </div>
+
+        <!-- Answer Form -->
+        <div class="space-y-4">
+          <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider">✍️ Ekspert Javobi (Foydalanuvchiga yuboriladi):</h4>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">1. Tahlil matni (Asosiy javob)</label>
+            <textarea id="answerTextInput" rows="4" placeholder="Savol bo‘yicha tahliliy javob..." class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">2. Huquqiy asos (Soliq kodeksi moddalari)</label>
+            <textarea id="legalBasisInput" rows="2" placeholder="O‘zbekiston Respublikasi Soliq kodeksining ... moddasi" class="w-full px-4 py-2 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">3. Xulosa va tavsiyalar</label>
+            <textarea id="conclusionInput" rows="2" placeholder="Xulosa qilib aytganda..." class="w-full px-4 py-2 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+        <button onclick="closeQuestionModal()" class="px-4 py-2 text-sm text-slate-600 hover:text-slate-900 font-medium">Yopish</button>
+        <button onclick="submitAnswer()" id="btnSendAnswer" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-xl shadow-md transition">
+          🚀 Foydalanuvchiga yuborish (Telegram)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/admin/admin.js"></script>
+  <script src="/admin/autosubmit.js"></script>
+</body>
+</html>
