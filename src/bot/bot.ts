@@ -21,6 +21,11 @@ export type MyContext = Context & SessionFlavor<SessionData>;
 export function createBot(): Bot<MyContext> {
   const bot = new Bot<MyContext>(config.botToken || 'dummy_token');
 
+  // Error boundary
+  bot.catch((err) => {
+    console.error('Telegram Bot Error caught:', err);
+  });
+
   // Register bot instance with notification service
   setBotInstance(bot as any);
 
@@ -31,8 +36,12 @@ export function createBot(): Bot<MyContext> {
 
   // Helper to get user language
   async function getUserLang(telegramId: string): Promise<Language> {
-    const user = await prisma.user.findUnique({ where: { telegramId } });
-    return (user?.language as Language) || 'uz';
+    try {
+      const user = await prisma.user.findUnique({ where: { telegramId } });
+      return (user?.language as Language) || 'uz';
+    } catch {
+      return 'uz';
+    }
   }
 
   // /start command
@@ -242,8 +251,11 @@ export function createBot(): Bot<MyContext> {
       ctx.session.pendingServiceId = serviceId;
       await ctx.answerCallbackQuery({ text: 'Tarif tanlandi!' });
 
-      // Automatically proceed to create question and show payment details!
-      await finalizeQuestionCreation(ctx);
+      try {
+        await finalizeQuestionCreation(ctx);
+      } catch (err) {
+        console.error('Error finalizing question creation:', err);
+      }
       return;
     }
 
@@ -373,17 +385,26 @@ export function createBot(): Bot<MyContext> {
     // If uploading payment receipt
     if (step === 'AWAITING_RECEIPT' && ctx.session.activeQuestionId) {
       const tgId = ctx.from!.id.toString();
-      const user = await prisma.user.findUnique({ where: { telegramId: tgId } });
-      if (user) {
-        await submitManualPaymentReceipt(ctx.session.activeQuestionId, user.id, fileId);
-        ctx.session.step = 'IDLE';
-        ctx.session.activeQuestionId = undefined;
-
-        await ctx.reply(messages[lang].receiptReceived, {
-          parse_mode: 'Markdown',
-          reply_markup: getMainMenu(lang),
+      let user = await prisma.user.findUnique({ where: { telegramId: tgId } });
+      if (!user) {
+        user = await prisma.user.create({
+          data: {
+            telegramId: tgId,
+            username: ctx.from?.username || null,
+            firstName: ctx.from?.first_name || null,
+            language: lang,
+          },
         });
       }
+      
+      await submitManualPaymentReceipt(ctx.session.activeQuestionId, user.id, fileId);
+      ctx.session.step = 'IDLE';
+      ctx.session.activeQuestionId = undefined;
+
+      await ctx.reply(messages[lang].receiptReceived, {
+        parse_mode: 'Markdown',
+        reply_markup: getMainMenu(lang),
+      });
       return;
     }
 
@@ -488,13 +509,27 @@ export function createBot(): Bot<MyContext> {
     const tgId = ctx.from!.id.toString();
     const lang = await getUserLang(tgId);
 
-    const user = await prisma.user.findUnique({ where: { telegramId: tgId } });
-    if (!user) return;
+    // Auto-create or fetch user so it never returns early
+    let user = await prisma.user.findUnique({ where: { telegramId: tgId } });
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          telegramId: tgId,
+          username: ctx.from?.username || null,
+          firstName: ctx.from?.first_name || null,
+          lastName: ctx.from?.last_name || null,
+          language: lang,
+        },
+      });
+    }
 
-    const questionText = ctx.session.pendingQuestionText || "Hujjat tahlili";
+    const questionText = ctx.session.pendingQuestionText || "Umumiy soliq maslahati";
     const serviceId = ctx.session.pendingServiceId || 1;
 
-    const service = await prisma.service.findUnique({ where: { id: serviceId } });
+    let service = await prisma.service.findUnique({ where: { id: serviceId } });
+    if (!service) {
+      service = await prisma.service.findFirst();
+    }
     const servicePrice = service?.price || 30000;
     const serviceName = (lang === 'ru' ? service?.nameRu : service?.nameUz) || 'Soliq maslahati';
 
@@ -503,7 +538,17 @@ export function createBot(): Bot<MyContext> {
     const questionNumber = lastQuestion ? lastQuestion.questionNumber + 1 : 1024;
 
     // Run AI analysis
-    const aiAnalysis = await analyzeTaxQuestion(questionText, serviceName);
+    let aiAnalysis = {
+      category: "Soliq maslahati",
+      summary: "Soliq va buxgalteriya tahlili",
+      legalBasis: "O‘zbekiston Respublikasi Soliq kodeksi",
+      draftAnswer: "Soliq bo'yicha tahlil tayyorlanmoqda.",
+    };
+    try {
+      aiAnalysis = await analyzeTaxQuestion(questionText, serviceName);
+    } catch (e) {
+      console.warn('AI analysis skipped:', e);
+    }
 
     // Save question in database
     const createdQuestion = await prisma.question.create({
@@ -536,10 +581,16 @@ export function createBot(): Bot<MyContext> {
       }
     }
 
-    await logActivity('QUESTION_CREATED', `Yangi savol #${questionNumber} yaratildi.`, { questionId: createdQuestion.id });
+    try {
+      await logActivity('QUESTION_CREATED', `Yangi savol #${questionNumber} yaratildi.`, { questionId: createdQuestion.id });
+    } catch {}
 
-    // Notify admin
-    await notifyAdminNewQuestion(createdQuestion.id);
+    // Notify admin safely
+    try {
+      await notifyAdminNewQuestion(createdQuestion.id);
+    } catch (e) {
+      console.error('Admin notification error:', e);
+    }
 
     // Get payment settings
     const cardSetting = await prisma.setting.findUnique({ where: { key: 'payment_card' } });
@@ -563,10 +614,19 @@ export function createBot(): Bot<MyContext> {
       ? "\n\n📎 *Вы также можете отправить любые сопутствующие документы (договор, акт, счет) в любое время.*"
       : "\n\n📎 *Shuningdek, savolingizga tegishli shartnoma yoki hujjatlar bo‘lsa, istalgan paytda yuborishingiz mumkin.*";
 
-    await ctx.reply(`${summary}\n\n${payInstruction}${docNote}`, {
-      parse_mode: 'Markdown',
-      reply_markup: getCancelKeyboard(lang),
-    });
+    const fullMessage = `${summary}\n\n${payInstruction}${docNote}`;
+
+    try {
+      await ctx.reply(fullMessage, {
+        parse_mode: 'Markdown',
+        reply_markup: getCancelKeyboard(lang),
+      });
+    } catch (parseErr) {
+      // Fallback without parse_mode if Markdown parsing failed
+      await ctx.reply(fullMessage, {
+        reply_markup: getCancelKeyboard(lang),
+      });
+    }
   }
 
   return bot;
