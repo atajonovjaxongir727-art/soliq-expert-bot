@@ -231,13 +231,38 @@ async function openQuestionModal(id) {
 
   const filesSec = document.getElementById('modalFilesSection');
   const filesList = document.getElementById('modalFilesList');
-  if (q.files && q.files.length > 0) {
+  const hasFiles = q.files && q.files.length > 0;
+  const receipts = (q.payments || []).filter(p => p.receiptFileId);
+
+  if (hasFiles || receipts.length > 0) {
     filesSec.classList.remove('hidden');
-    filesList.innerHTML = q.files.map(f => `
-      <span class="inline-flex items-center px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-xs font-medium text-slate-700">
-        📄 ${f.fileName || (f.fileType === 'photo' ? 'Rasm/Chek' : 'Hujjat')}
-      </span>
-    `).join('');
+    let items = [];
+    if (hasFiles) {
+      items.push(...q.files.map(f => {
+        const isPhoto = f.fileType === 'photo' || (f.fileName && /\.(jpe?g|png|webp)$/i.test(f.fileName));
+        const icon = isPhoto ? '\uD83D\uDDBC\uFE0F' : '\uD83D\uDCC4';
+        const name = f.fileName || (isPhoto ? 'Rasm / Hujjat' : 'Hujjat');
+        return `
+          <a href="/api/questions/file/${f.fileId}" target="_blank" rel="noopener noreferrer" 
+             class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-blue-200 bg-blue-50 text-xs font-semibold text-blue-700 hover:bg-blue-100 hover:border-blue-300 transition shadow-sm group">
+            <span>${icon}</span>
+            <span class="truncate max-w-[200px]" title="${escapeHtml(name)}">${escapeHtml(name)}</span>
+            <span class="text-blue-500 font-bold group-hover:translate-x-0.5 transition-transform">\u2B07\uFE0F Ochish</span>
+          </a>
+        `;
+      }));
+    }
+    if (receipts.length > 0) {
+      items.push(...receipts.map(p => `
+        <a href="/api/payments/${p.id}/receipt" target="_blank" rel="noopener noreferrer" 
+           class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-emerald-200 bg-emerald-50 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 hover:border-emerald-300 transition shadow-sm group">
+          <span>\uD83E\uDDFE</span>
+          <span>To\u2018lov cheki (${p.amount.toLocaleString('uz-UZ')} so\u2018m)</span>
+          <span class="text-emerald-600 font-bold group-hover:translate-x-0.5 transition-transform">\u2B07\uFE0F Ochish</span>
+        </a>
+      `));
+    }
+    filesList.innerHTML = items.join('');
   } else {
     filesSec.classList.add('hidden');
   }
@@ -343,7 +368,7 @@ async function loadPayments() {
         <td class="px-6 py-4">
           <span class="inline-block px-2 py-0.5 rounded-full text-xs font-bold badge-${p.status}">${p.status}</span>
         </td>
-        <td class="px-6 py-4 text-xs font-mono">${p.receiptFileId ? '📸 Chek mavjud' : '—'}</td>
+        <td class="px-6 py-4 text-xs font-mono">${p.receiptFileId ? `<a href="/api/payments/${p.id}/receipt" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300 font-semibold transition"><span>\uD83E\uDDFE</span><span>Chekni ochish \u2197</span></a>` : '<span class="text-slate-400">\u2014</span>'}</td>
         <td class="px-6 py-4 text-xs text-slate-400">${new Date(p.createdAt).toLocaleDateString('uz-UZ')}</td>
         <td class="px-6 py-4 text-right space-x-2">
           ${p.status === 'PENDING' ? `

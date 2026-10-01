@@ -1,10 +1,54 @@
 ﻿import { Router } from 'express';
+import axios from 'axios';
 import { prisma, logActivity } from '../../database/db.js';
+import { config } from '../../config/index.js';
 import { requireAdminAuth, AuthRequest } from '../middlewares/auth.js';
 import { sendAnswerToUser } from '../../services/notificationService.js';
 import { analyzeTaxQuestion } from '../../services/aiService.js';
 
 export const questionRouter = Router();
+
+// Stream or view uploaded telegram file
+questionRouter.get('/file/:fileId', async (req, res) => {
+  const fileId = req.params.fileId as string;
+  try {
+    const response = await axios.get(
+      `https://api.telegram.org/bot${config.botToken}/getFile?file_id=${fileId}`
+    );
+    if (!response.data.ok || !response.data.result?.file_path) {
+      return res.status(404).send('Fayl Telegram serverida topilmadi');
+    }
+
+    const filePath = response.data.result.file_path;
+    const fileUrl = `https://api.telegram.org/file/bot${config.botToken}/${filePath}`;
+
+    const fileStream = await axios.get(fileUrl, { responseType: 'stream' });
+
+    const qFile = await prisma.questionFile.findFirst({ where: { fileId } });
+    const originalName = qFile?.fileName || filePath.split('/').pop() || 'document';
+
+    const ext = (originalName.includes('.') ? originalName : filePath).split('.').pop()?.toLowerCase();
+    const rawContentType = fileStream.headers['content-type'];
+    let contentType: string = rawContentType ? String(rawContentType) : 'application/octet-stream';
+    if (ext === 'pdf') contentType = 'application/pdf';
+    else if (ext === 'jpg' || ext === 'jpeg') contentType = 'image/jpeg';
+    else if (ext === 'png') contentType = 'image/png';
+    else if (ext === 'webp') contentType = 'image/webp';
+    else if (ext === 'doc') contentType = 'application/msword';
+    else if (ext === 'docx') contentType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    else if (ext === 'xls') contentType = 'application/vnd.ms-excel';
+    else if (ext === 'xlsx') contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    else if (ext === 'txt') contentType = 'text/plain; charset=utf-8';
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(originalName)}"`);
+
+    fileStream.data.pipe(res);
+  } catch (err: any) {
+    console.error('File fetch error:', err.message);
+    res.status(500).send('Faylni ochishda xatolik yuz berdi: ' + err.message);
+  }
+});
 
 // List questions with filters
 questionRouter.get('/', requireAdminAuth, async (req, res) => {
