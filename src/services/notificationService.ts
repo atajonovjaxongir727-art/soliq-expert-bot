@@ -33,7 +33,7 @@ export async function notifyAdminNewQuestion(questionId: number) {
       `❓ **Savol matni:**\n${q.questionText.slice(0, 300)}${q.questionText.length > 300 ? '...' : ''}`;
 
     const kb = new InlineKeyboard()
-      .url("🌐 Web Paneldan ko‘rish", `http://localhost:${config.port}/admin`);
+      .url("🌐 Web Paneldan ko‘rish", `${config.webUrl}/admin`);
 
     await botInstance.api.sendMessage(config.adminTelegramId, msg, {
       parse_mode: 'Markdown',
@@ -67,7 +67,7 @@ export async function notifyAdminPaymentReceipt(questionId: number, receiptFileI
     const kb = new InlineKeyboard()
       .text("✅ Tasdiqlash", `approve_payment:${q.id}`)
       .text("❌ Rad etish", `reject_payment:${q.id}`).row()
-      .url("🌐 Admin Panel", `http://localhost:${config.port}/admin`);
+      .url("🌐 Admin Panel", `${config.webUrl}/admin`);
 
     // Send photo or document depending on receipt file
     try {

@@ -18,11 +18,20 @@ function showApp() {
   document.getElementById('loginSection').classList.add('hidden');
   document.getElementById('appSection').classList.remove('hidden');
   refreshData();
+  startLivePolling();
+  updateSoundUI();
+  updateBrowserNotifUI();
+  if ('Notification' in window && Notification.permission === 'default') {
+    setTimeout(() => {
+      Notification.requestPermission().then(updateBrowserNotifUI);
+    }, 1500);
+  }
 }
 
 function logout() {
   localStorage.removeItem('se_token');
   authToken = null;
+  stopLivePolling();
   showLogin();
 }
 
@@ -481,4 +490,302 @@ async function loadLogs() {
 function escapeHtml(str) {
   if (!str) return '';
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+
+// ==========================================
+// REAL-TIME NOTIFICATIONS & LIVE POLLING
+// ==========================================
+let soundEnabled = localStorage.getItem('se_sound_enabled') !== 'false';
+let livePollingInterval = null;
+let lastKnownQuestionId = null;
+let lastKnownPaymentId = null;
+let isInitialPoll = true;
+let unreadNotificationsCount = 0;
+const originalDocTitle = document.title || 'Soliq Expert - Admin Panel';
+
+// Web Audio API Context (Lazily initialized on first user click)
+let audioCtx = null;
+function getAudioContext() {
+  if (!audioCtx) {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (AudioCtx) audioCtx = new AudioCtx();
+  }
+  if (audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+  return audioCtx;
+}
+
+window.addEventListener('click', () => {
+  if (audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+}, { once: false });
+
+function playNotificationSound() {
+  if (!soundEnabled) return;
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    // First tone: 659.25Hz (E5)
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(659.25, now);
+    gain1.gain.setValueAtTime(0.2, now);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.45);
+
+    // Second tone: 880Hz (A5)
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(880, now + 0.12);
+    gain2.gain.setValueAtTime(0.25, now + 0.12);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.75);
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(now + 0.12);
+    osc2.stop(now + 0.75);
+  } catch (e) {
+    console.debug('Notification sound error:', e);
+  }
+}
+
+function toggleSound() {
+  soundEnabled = !soundEnabled;
+  localStorage.setItem('se_sound_enabled', soundEnabled ? 'true' : 'false');
+  updateSoundUI();
+  if (soundEnabled) {
+    playNotificationSound();
+  }
+}
+
+function updateSoundUI() {
+  const icon = document.getElementById('soundIcon');
+  const label = document.getElementById('soundLabel');
+  if (!icon || !label) return;
+  if (soundEnabled) {
+    icon.textContent = '🔊';
+    label.textContent = 'Ovoz: Yoqilgan';
+  } else {
+    icon.textContent = '🔇';
+    label.textContent = 'Ovoz: O‘chirilgan';
+  }
+}
+
+function enableBrowserNotifications() {
+  if (!('Notification' in window)) {
+    alert('Brauzeringiz bildirishnomalarni qo‘llab-quvvatlamaydi.');
+    return;
+  }
+  Notification.requestPermission().then(permission => {
+    updateBrowserNotifUI();
+    if (permission === 'granted') {
+      showBrowserNotification('🔔 Bildirishnomalar faol!', 'Yangi savollar va to‘lovlar haqida brauzer xabar beradi.');
+    }
+  });
+}
+
+function updateBrowserNotifUI() {
+  const btn = document.getElementById('btnBrowserNotif');
+  const label = document.getElementById('browserNotifLabel');
+  if (!btn || !label) return;
+  if ('Notification' in window && Notification.permission === 'granted') {
+    label.textContent = 'Xabarlar: Faol';
+    btn.className = 'inline-flex items-center space-x-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100 transition';
+  } else {
+    label.textContent = 'Xabarlarni yoqish';
+    btn.className = 'inline-flex items-center space-x-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 transition';
+  }
+}
+
+function showBrowserNotification(title, body, onClick) {
+  if ('Notification' in window && Notification.permission === 'granted') {
+    try {
+      const notif = new Notification(title, {
+        body,
+        icon: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png'
+      });
+      if (onClick) {
+        notif.onclick = () => {
+          window.focus();
+          onClick();
+        };
+      }
+    } catch (e) {
+      console.debug('Browser notification error:', e);
+    }
+  }
+}
+
+function updateDocumentTitle(count) {
+  unreadNotificationsCount += count;
+  if (unreadNotificationsCount > 0) {
+    document.title = `(${unreadNotificationsCount}) 🔔 Yangi savol! - Soliq Expert`;
+  }
+}
+
+window.addEventListener('focus', () => {
+  unreadNotificationsCount = 0;
+  document.title = originalDocTitle;
+});
+
+function showToast({ title, message, badge, questionId, paymentId, isReceipt }) {
+  const container = document.getElementById('toastContainer');
+  if (!container) return;
+
+  const toast = document.createElement('div');
+  toast.className = 'transform transition-all duration-300 ease-out translate-x-full opacity-0 bg-white border border-slate-200 rounded-2xl shadow-2xl p-4 flex flex-col space-y-2 pointer-events-auto border-l-4 ' + (isReceipt ? 'border-l-emerald-500' : 'border-l-blue-600');
+  
+  toast.innerHTML = `
+    <div class="flex items-start justify-between">
+      <div class="flex items-center space-x-2">
+        <span class="text-xl">${isReceipt ? '🧾' : '🔔'}</span>
+        <span class="font-bold text-sm text-slate-900">${escapeHtml(title)}</span>
+      </div>
+      <button onclick="this.closest('.transform').remove()" class="text-slate-400 hover:text-slate-600 text-sm font-bold p-1">✕</button>
+    </div>
+    <p class="text-xs text-slate-600 leading-relaxed">${escapeHtml(message)}</p>
+    <div class="flex items-center justify-between pt-1">
+      <span class="text-[11px] font-semibold text-slate-400">${badge || 'Hozirgina'}</span>
+      ${questionId ? `
+        <button onclick="openQuestionModal(${questionId}); this.closest('.transform').remove();" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-sm transition">
+          Ko‘rish / Javob ↗
+        </button>
+      ` : ''}
+      ${paymentId ? `
+        <button onclick="switchTab('payments'); this.closest('.transform').remove();" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-sm transition">
+          To‘lovni ko‘rish ↗
+        </button>
+      ` : ''}
+    </div>
+  `;
+
+  container.appendChild(toast);
+
+  requestAnimationFrame(() => {
+    toast.classList.remove('translate-x-full', 'opacity-0');
+  });
+
+  setTimeout(() => {
+    toast.classList.add('translate-x-full', 'opacity-0');
+    setTimeout(() => toast.remove(), 350);
+  }, 9000);
+}
+
+async function startLivePolling() {
+  if (livePollingInterval) clearInterval(livePollingInterval);
+  await checkLiveUpdates();
+  livePollingInterval = setInterval(checkLiveUpdates, 6000);
+}
+
+function stopLivePolling() {
+  if (livePollingInterval) {
+    clearInterval(livePollingInterval);
+    livePollingInterval = null;
+  }
+}
+
+async function checkLiveUpdates() {
+  if (!authToken) return;
+  try {
+    const [qData, pData, stats] = await Promise.all([
+      api('/api/questions?limit=5'),
+      api('/api/payments'),
+      api('/api/dashboard/stats'),
+    ]);
+
+    // Update pending count badge on sidebar
+    const pendingBadge = document.getElementById('badgePendingQuestions');
+    if (pendingBadge && stats && stats.questions) {
+      const pendingTotal = (stats.questions.paymentPending || 0) + (stats.questions.inProgress || 0);
+      if (pendingTotal > 0) {
+        pendingBadge.textContent = pendingTotal;
+        pendingBadge.classList.remove('hidden');
+      } else {
+        pendingBadge.classList.add('hidden');
+      }
+    }
+
+    // Check for new questions
+    const questions = qData.questions || [];
+    if (questions.length > 0) {
+      const maxQId = Math.max(...questions.map(q => q.id));
+
+      if (isInitialPoll) {
+        lastKnownQuestionId = maxQId;
+      } else if (lastKnownQuestionId !== null && maxQId > lastKnownQuestionId) {
+        const newQuestions = questions.filter(q => q.id > lastKnownQuestionId);
+        newQuestions.reverse().forEach(q => {
+          playNotificationSound();
+          const userStr = q.user?.username ? '@' + q.user.username : (q.user?.firstName || 'Mijoz');
+          const serviceStr = q.service?.nameUz || 'Soliq maslahati';
+          const previewText = q.questionText ? q.questionText.slice(0, 100) : 'Yangi savol';
+
+          showToast({
+            title: 'Yangi savol kelib tushdi! #' + q.questionNumber,
+            message: `${userStr} (${serviceStr}): "${previewText}..."`,
+            badge: `${(q.price || 0).toLocaleString('uz-UZ')} so‘m`,
+            questionId: q.id,
+          });
+
+          showBrowserNotification(
+            '🔔 Yangi savol: #' + q.questionNumber,
+            `${userStr}: ${previewText}`,
+            () => openQuestionModal(q.id)
+          );
+
+          updateDocumentTitle(1);
+        });
+
+        lastKnownQuestionId = maxQId;
+
+        // Auto-refresh active view
+        if (currentTab === 'dashboard') loadDashboard();
+        else if (currentTab === 'questions') loadQuestions();
+      }
+    }
+
+    // Check for new payments
+    if (Array.isArray(pData) && pData.length > 0) {
+      const maxPId = Math.max(...pData.map(p => p.id));
+      if (isInitialPoll) {
+        lastKnownPaymentId = maxPId;
+      } else if (lastKnownPaymentId !== null && maxPId > lastKnownPaymentId) {
+        const newPayments = pData.filter(p => p.id > lastKnownPaymentId);
+        newPayments.reverse().forEach(p => {
+          playNotificationSound();
+          const userStr = p.user?.username ? '@' + p.user.username : (p.user?.firstName || 'Mijoz');
+          showToast({
+            title: 'Yangi to‘lov cheki keldi!',
+            message: `${userStr} ${p.amount.toLocaleString('uz-UZ')} so‘m to‘lov chekini yubordi.`,
+            badge: 'To‘lov #' + p.id,
+            paymentId: p.id,
+            isReceipt: true,
+          });
+
+          showBrowserNotification(
+            '🧾 Yangi to‘lov cheki!',
+            `${userStr}: ${p.amount.toLocaleString('uz-UZ')} so‘m to‘lov cheki kelib tushdi.`,
+            () => switchTab('payments')
+          );
+        });
+
+        lastKnownPaymentId = maxPId;
+        if (currentTab === 'payments') loadPayments();
+        if (currentTab === 'dashboard') loadDashboard();
+      }
+    }
+
+    isInitialPoll = false;
+  } catch (err) {
+    console.debug('[LivePoll] background check skipped:', err.message);
+  }
 }

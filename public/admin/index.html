@@ -109,7 +109,15 @@
           </span>
         </div>
 
-        <div class="flex items-center space-x-4">
+        <div class="flex items-center space-x-3">
+          <button id="btnSoundToggle" onclick="toggleSound()" class="inline-flex items-center space-x-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 transition" title="Ovozli bildirishnoma">
+            <span id="soundIcon">🔊</span>
+            <span id="soundLabel">Ovoz: Yoqilgan</span>
+          </button>
+          <button id="btnBrowserNotif" onclick="enableBrowserNotifications()" class="inline-flex items-center space-x-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 transition" title="Brauzer bildirishnomalari">
+            <span>🔔</span>
+            <span id="browserNotifLabel">Xabarlar</span>
+          </button>
           <a href="https://t.me/Soliq_Expert_Bot" target="_blank" class="inline-flex items-center space-x-2 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition">
             <span>@Soliq_Expert_Bot</span>
           </a>
@@ -459,6 +467,10 @@
       </div>
     </div>
   </div>
+
+  
+  <!-- TOAST NOTIFICATION CONTAINER -->
+  <div id="toastContainer" class="fixed top-5 right-5 z-50 flex flex-col space-y-3 pointer-events-none max-w-sm w-full"></div>
 
   <script src="/admin/admin.js"></script>
   <script src="/admin/autosubmit.js"></script>
