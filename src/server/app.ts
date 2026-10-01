@@ -28,6 +28,21 @@ export function createApp() {
   const adminDir = path.resolve('public/admin');
   app.use('/admin', express.static(adminDir));
 
+  // Tax Risk Calculators
+  const calculatorDir = path.resolve('public/calculator');
+  if (!fs.existsSync(calculatorDir)) {
+    fs.mkdirSync(calculatorDir, { recursive: true });
+  }
+  app.use('/calculator', express.static(calculatorDir));
+
+  app.get(['/calculator/11-mezon', '/calculator/risk-11'], (req, res) => {
+    res.sendFile(path.resolve('public/calculator/risk-11.html'));
+  });
+
+  app.get(['/calculator/59-mezon', '/calculator/risk-59'], (req, res) => {
+    res.sendFile(path.resolve('public/calculator/risk-59.html'));
+  });
+
   // REST API Routes
   app.use('/api/auth', authRouter);
   app.use('/api/dashboard', dashboardRouter);

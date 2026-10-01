@@ -57,6 +57,26 @@ async function main() {
       priceText: '200 000 so‘mdan',
       sortOrder: 5,
     },
+    {
+      code: 'RISK_CALC_11',
+      nameUz: 'Soliq riskini aniqlash (11 ta mezon)',
+      nameRu: 'Оценка налогового риска (11 критериев)',
+      descriptionUz: 'Kompaniyangiz soliq xavf darajasini 11 ta asosiy mezon bo‘yicha tezkor tahlil qilish interaktiv kalkulyatori.',
+      descriptionRu: 'Экспресс-калькулятор оценки налогового риска компании по 11 критериям.',
+      price: 50000,
+      priceText: '50 000 so‘m',
+      sortOrder: 6,
+    },
+    {
+      code: 'RISK_CALC_59',
+      nameUz: 'To‘liq soliq riski kalkulyatori (59 ta mezon)',
+      nameRu: 'Полный калькулятор налогового риска (59 критериев)',
+      descriptionUz: 'Soliq organlarining barcha 59 ta mezonlari bo‘yicha chuqur professional audit kalkulyatori.',
+      descriptionRu: 'Профессиональный калькулятор налоговых рисков предприятия по 59 критериям.',
+      price: 150000,
+      priceText: '150 000 so‘m',
+      sortOrder: 7,
+    },
   ];
 
   for (const s of initialServices) {

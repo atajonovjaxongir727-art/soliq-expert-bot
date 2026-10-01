@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Soliq Risk Kalkulyatori — 59 mezon</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#16283D; --ink-2:#1F3A54;
+    --paper:#ECE9E1; --paper-2:#F7F5EF;
+    --line:#C7C0AE; --accent:#2E6E8E; --accent-2:#245670;
+    --muted:#5B6672;
+    --green:#3E7A4F; --amber:#B9862E; --orange:#C1602E; --red:#A93226;
+    --w1:#7C8998; --w2:#4F84A3; --w3:#B9862E; --w4:#C1602E; --w5:#A93226;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'IBM Plex Sans', sans-serif;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 24px 64px;}
+
+  header.masthead{background:var(--ink);color:var(--paper-2);padding:36px 24px 28px;margin-bottom:36px;}
+  .masthead-inner{max-width:1180px;margin:0 auto;}
+  .eyebrow{font-family:'IBM Plex Mono', monospace;font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:#9FB6C7;display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+  .eyebrow::before{content:"";width:7px;height:7px;background:#7FA8C2;border-radius:50%;display:inline-block;}
+  h1{font-family:'Fraunces', serif;font-weight:600;font-size:clamp(26px,4vw,40px);margin:0 0 8px;letter-spacing:-.01em;}
+  header .sub{color:#C4CDD6;font-size:15px;max-width:680px;line-height:1.55;margin:0;}
+  header .sub b{color:#E9EDF0;font-weight:600;}
+  .stat-strip{display:flex;gap:22px;margin-top:18px;flex-wrap:wrap;}
+  .stat{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#9FB6C7;}
+  .stat b{display:block;font-family:'Fraunces',serif;font-size:22px;color:#E9EDF0;font-weight:600;}
+
+  .grid{display:grid;grid-template-columns:1.55fr 1fr;gap:28px;align-items:start;}
+  @media (max-width:900px){ .grid{grid-template-columns:1fr;} }
+
+  .form-card{background:var(--paper-2);border:1px solid var(--line);}
+  .cat{border-bottom:1px dashed var(--line);}
+  .cat:last-child{border-bottom:none;}
+  .cat-head{
+    display:flex;align-items:center;gap:12px;
+    padding:18px 26px;
+    cursor:pointer;
+    user-select:none;
+  }
+  .cat-head:hover{background:#F1EEE5;}
+  .cat-num{
+    font-family:'IBM Plex Mono', monospace;font-size:12px;color:var(--accent);
+    border:1px solid var(--accent);width:26px;height:26px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  }
+  .cat-title{font-family:'Fraunces', serif;font-weight:600;font-size:16.5px;flex:1;}
+  .cat-count{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--muted);white-space:nowrap;}
+  .cat-chevron{font-family:'IBM Plex Mono',monospace;color:var(--muted);transition:transform .15s;}
+  .cat.open .cat-chevron{transform:rotate(90deg);}
+  .cat-body{display:none;padding:0 26px 18px 26px;}
+  .cat.open .cat-body{display:block;}
+
+  .item{
+    display:flex;align-items:flex-start;gap:12px;
+    padding:10px 0;
+    border-top:1px solid #E6E2D6;
+  }
+  .item:first-child{border-top:none;}
+  .item input[type=checkbox]{
+    appearance:none;-webkit-appearance:none;
+    width:18px;height:18px;flex-shrink:0;margin-top:2px;
+    border:1.5px solid var(--line);background:#fff;
+    cursor:pointer;position:relative;
+  }
+  .item input[type=checkbox]:checked{background:var(--accent);border-color:var(--accent);}
+  .item input[type=checkbox]:checked::after{
+    content:"";position:absolute;left:5px;top:1px;width:5px;height:9px;
+    border:solid white;border-width:0 2px 2px 0;transform:rotate(45deg);
+  }
+  .item-text{font-size:13.5px;line-height:1.45;flex:1;cursor:pointer;}
+  .item-num{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);margin-right:4px;}
+  .sev-tag{
+    font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.05em;
+    padding:2px 6px;border-radius:2px;color:#fff;white-space:nowrap;flex-shrink:0;
+    margin-top:2px;text-transform:uppercase;
+  }
+
+  .result-panel{position:sticky;top:20px;background:var(--ink);color:var(--paper-2);padding:28px 26px 24px;border:1px solid var(--ink);}
+  .result-title{font-family:'IBM Plex Mono', monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#9FB6C7;margin-bottom:18px;}
+  .gauge-wrap{display:flex;flex-direction:column;align-items:center;margin-bottom:8px;}
+  .score-big{font-family:'Fraunces', serif;font-weight:700;font-size:52px;line-height:1;margin-top:-6px;}
+  .score-max{font-family:'IBM Plex Mono',monospace;font-size:13px;color:#9FB6C7;}
+  .flagged-count{font-family:'IBM Plex Mono',monospace;font-size:12px;color:#9FB6C7;margin-top:4px;}
+  .risk-label{font-family:'IBM Plex Mono', monospace;font-size:13px;letter-spacing:.06em;text-transform:uppercase;font-weight:600;padding:6px 14px;border-radius:2px;margin-top:10px;}
+
+  .cat-breakdown{margin-top:22px;}
+  .cb-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;font-size:11.5px;padding:5px 0;border-bottom:1px solid #2A3F55;}
+  .cb-name{color:#C4CDD6;}
+  .cb-val{font-family:'IBM Plex Mono',monospace;color:#E9EDF0;}
+  .cb-bar-track{grid-column:1/3;height:3px;background:#2A3F55;border-radius:2px;overflow:hidden;margin-top:2px;}
+  .cb-bar-fill{height:100%;background:var(--accent);}
+
+  .flags{margin-top:22px;padding-top:18px;border-top:1px dashed #3B5570;}
+  .flags-title{font-family:'IBM Plex Mono', monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#9FB6C7;margin-bottom:10px;}
+  .flags ul{margin:0;padding-left:18px;font-size:12px;line-height:1.55;color:#DCE3E8;max-height:260px;overflow-y:auto;}
+  .flags li{margin-bottom:6px;}
+  .flags .none{color:#7E8FA0;font-style:italic;}
+
+  .toolbar{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;}
+  .toolbar button{
+    font-family:'IBM Plex Mono',monospace;font-size:11.5px;
+    background:var(--paper-2);border:1px solid var(--line);color:var(--ink);
+    padding:8px 14px;cursor:pointer;letter-spacing:.03em;
+  }
+  .toolbar button:hover{background:#fff;border-color:var(--accent);color:var(--accent-2);}
+
+  footer.note{margin-top:36px;font-size:12px;color:var(--muted);line-height:1.6;border-top:1px dashed var(--line);padding-top:18px;}
+  footer.note b{color:var(--ink);}
+</style>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script>
+  if (window.Telegram && window.Telegram.WebApp) {
+    window.Telegram.WebApp.ready();
+    window.Telegram.WebApp.expand();
+  }
+</script>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="masthead-inner">
+    <div class="eyebrow">Ekspert modeli · 2-modul</div>
+    <h1>Soliq Risk Kalkulyatori — 59 mezon</h1>
+    <p class="sub">Soliq nazorati va <b>“Avtokameral” tizimida qo‘llaniladigan xavf-belgilar</b> ro‘yxatiga asoslangan tekshiruv varag‘i. Korxonangizga tegishli bandlarni belgilang — tizim og‘irligiga qarab umumiy risk darajasini hisoblab beradi.</p>
+    <div class="stat-strip">
+      <div class="stat">Jami mezonlar<b>59</b></div>
+      <div class="stat">Toifalar<b>9</b></div>
+      <div class="stat">Og‘irlik shkalasi<b>1–5</b></div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="toolbar">
+    <button onclick="toggleAll(true)">Barchasini yoyish</button>
+    <button onclick="toggleAll(false)">Barchasini yig‘ish</button>
+    <button onclick="clearAll()">Belgilarni tozalash</button>
+  </div>
+
+  <div class="grid">
+
+    <div class="form-card" id="formCard"></div>
+
+    <div class="result-panel">
+      <div class="result-title">Umumiy natija</div>
+      <div class="gauge-wrap">
+        <svg width="220" height="130" viewBox="0 0 220 130">
+          <path d="M 20 110 A 90 90 0 0 1 200 110" fill="none" stroke="#2A3F55" stroke-width="14" stroke-linecap="round"/>
+          <path id="arcFill" d="M 20 110 A 90 90 0 0 1 200 110" fill="none" stroke="var(--accent)" stroke-width="14" stroke-linecap="round" stroke-dasharray="283" stroke-dashoffset="283"/>
+          <line id="needle" x1="110" y1="110" x2="110" y2="35" stroke="#F7F5EF" stroke-width="2.5"/>
+          <circle cx="110" cy="110" r="6" fill="#F7F5EF"/>
+        </svg>
+        <div class="score-big"><span id="scoreVal">0</span><span class="score-max"> / 100</span></div>
+        <div class="flagged-count" id="flaggedCount">0 / 59 band belgilandi</div>
+        <div class="risk-label" id="riskLabel">PAST XAVF</div>
+      </div>
+
+      <div class="cat-breakdown" id="catBreakdown"></div>
+
+      <div class="flags">
+        <div class="flags-title">Belgilangan xavf omillari</div>
+        <ul id="flagList"><li class="none">Hozircha hech narsa belgilanmagan</li></ul>
+      </div>
+    </div>
+
+  </div>
+
+  <footer class="note">
+    <b>Eslatma:</b> Ro‘yxatdagi 59 mezon — soliq nazorati amaliyotida qo‘llanilishi ma’lum bo‘lgan xavf-belgilarning ekspert tomonidan tizimlashtirilgan ko‘rinishi. Har bir bandning og‘irlik koeffitsiyenti (1–5) taxminiy va norasmiy tarzda, jiddiylik darajasiga qarab belgilangan — rasmiy vazn qiymatlari e’lon qilinmagan. Natija faqat yo‘nalish bo‘yicha o‘z-o‘zini tekshirish uchun mo‘ljallangan, rasmiy risk reytingi yoki tekshiruv qarorining o‘rnini bosmaydi. Aniq holatlar bo‘yicha litsenziyalangan soliq maslahatchisi yoki auditor bilan maslahatlashing.
+  </footer>
+</div>
+
+<script>
+const DATA = [
+  {title:"Kassa va fiskal intizom", items:[
+    [1,"ONKM (onlayn-nazorat kassa mashinasi)dan foydalanish tartib-qoidalarini buzish",3],
+    [2,"Terminal orqali amalga oshirilgan savdo tushumini onlayn-NKMga kiritmaslik — QQS to‘lovchilar",5],
+    [3,"Terminal orqali amalga oshirilgan savdo tushumini onlayn-NKMga kiritmaslik — AOS to‘lovchilar",5],
+    [9,"Elektron savdo va xizmatlarda fiskal belgili cheklarni aks ettirish talabiga rioya qilmaslik",4],
+  ]},
+  {title:"Ombor va tovar-moddiy zaxira", items:[
+    [4,"Doimiy ravishda tovarlar qoldig‘ini hosil qilish orqali soliqlarni to‘lamaslik — QQS",4],
+    [5,"Doimiy ravishda tovarlar qoldig‘ini hosil qilish orqali soliqlarni to‘lamaslik — AOS",4],
+    [8,"Yuqori likvidli 8 turdagi tovarlarning omborda yirik miqdorda saqlanishi",3],
+    [50,"Yoqilg‘i mahsulotlarini saqlash ombori litsenziyasi bo‘lmagan holda katta miqdorda mahsulot saqlash",3],
+  ]},
+  {title:"Hisobot va deklaratsiya intizomi", items:[
+    [6,"Aynan bir hisobot davri uchun qayta hisob-kitoblarning takroriy taqdim etilishi",2],
+    [22,"Soliq va buxgalteriya hisobotlarida doimiy zararlar aks ettirilishi",4],
+    [23,"Hisobotlarni belgilangan muddatidan kechiktirib taqdim etish",2],
+    [24,"Aynan bir davr uchun soliq summasini kamaytirishga qayta hisobot taqdim etish",3],
+    [25,"Soliq summasini kamaytirishga hisoblangan avtomatik qabul qilingan soliq hisobotlari",3],
+    [26,"Ishchilar soni va ish haqi fondiga yirik miqdorda kamaytiruvchi tuzatish kiritilishi",3],
+    [27,"Soliq qarzdorligining doimiy yuzaga kelishi",4],
+    [45,"Valyuta tushumini QQS hisobotida noto‘g‘ri ko‘rsatish",3],
+  ]},
+  {title:"Kontragent va bitim xavfsizligi", items:[
+    [7,"Transport vositasi mavjud bo‘lmagan kontragentlardan transport xizmatlari kirim qilinganligi — QQS",4],
+    [10,"Ko‘chmas mulk va asosiy vositalari mavjud bo‘lmagan holda yirik miqdorda realizatsiya — QQS",4],
+    [11,"Ko‘chmas mulk va asosiy vositalari mavjud bo‘lmagan holda yirik miqdorda realizatsiya — AOS",4],
+    [12,"Xarid va realizatsiya qilinayotgan tovarlar/xizmatlar nomenklaturasi nomuvofiqligi",3],
+    [13,"Shubhali operatsiyalarni amalga oshirgan korxonalar bilan iqtisodiy aloqada bo‘lgan kontragentlar",4],
+    [16,"EHFga kamayishga tuzatish kiritilgan, lekin xaridor kontragent soliq hisobotiga tuzatish kiritmagan",3],
+    [17,"Bankrotlik asosida tugatilgan subyektlardan hisobga olingan, lekin to‘lanmagan QQS mavjudligi",5],
+    [18,"Bankrot korxona rahbari/ta’sischisi/hisobchisi bo‘lgan shaxslar boshqaruvidagi o‘zaro bog‘liq subyektlar",5],
+    [19,"Kirim hujjatlari mavjud bo‘lmagan tovarlar realizatsiyasi",5],
+    [20,"Faoliyat ko‘rsatmayotgan yoki jinoyat ishi ochilgan subyektlarga yirik pul aylanmalari",5],
+    [54,"Yirik miqdorda soliq qarzdorligi mavjud subyektlardan hisobga olingan QQS mavjudligi",4],
+    [55,"Tovar aylanmasini sun’iy oshirish yoki QQSni to‘lamaslik maqsadida o‘zaro rasmiylashtirilgan EHFlar",5],
+    [56,"O‘zaro aloqador shaxslar o‘rtasidagi bitim narxlarining mustaqil shaxslar bitim narxlaridan farqi",4],
+  ]},
+  {title:"Moliyaviy va buxgalteriya ko‘rsatkichlari", items:[
+    [28,"Rasmiylashtirilgan ishchilar sonining soha bo‘yicha o‘rtachadan kamligi",2],
+    [29,"EBITDA marginining soha bo‘yicha o‘rtacha ko‘rsatkichdan pastligi",3],
+    [30,"Soliq yuki miqdorining soha bo‘yicha o‘rtacha ko‘rsatkichdan farq qilishi",3],
+    [31,"Tovar/xizmat realizatsiyasidan tushumlarning o‘tgan davrlarga nisbatan keskin kamayishi",3],
+    [32,"To‘lov qobiliyati (qoplash) koeffitsiyentining pastligi",2],
+    [33,"O‘z va qisqa muddatli qarz mablag‘lari nisbati koeffitsiyentining pastligi",2],
+    [34,"O‘z aylanma mablag‘lari bilan ta’minlanganlik koeffitsiyentining pastligi",2],
+    [35,"Rasmiy buxgalteriya hisobini yuritish uchun hisobchi (buxgalter) ro‘yxatga olinmaganligi",3],
+    [36,"Alohida hisobga olish usulida imtiyozli aylanmaga to‘g‘ri keladigan xarajatlarning hisobga olinishi",3],
+    [51,"Soliq imtiyozidan foydalangan davrga nisbatan tovar aylanmasining kamayishi — QQS",3],
+    [52,"Realizatsiyaning yer/mulk solig‘i hamda xarid qilingan elektr energiyasi va tabiiy gaz summalaridan kamligi — QQS",3],
+    [53,"Realizatsiyaning yer/mulk solig‘i hamda elektr energiyasi va tabiiy gaz summalaridan kamligi — AOS",3],
+  ]},
+  {title:"Tashqi iqtisodiy faoliyat", items:[
+    [43,"Import operatsiyalariga nisbatan hisobotlarda tovarlar aylanmasini kamaytirib ko‘rsatish",4],
+    [44,"Soliq qarzdorligi mavjud bo‘lgan holda eksport/import operatsiyalarini amalga oshirish",3],
+  ]},
+  {title:"Qayta tashkil etish va qo‘shilish", items:[
+    [46,"O‘z tarkibiga boshqa korxonalarni qo‘shib olish",2],
+    [47,"EHF/ONKM cheki rasmiylashtirilib, hisobot taqdim etmasdan boshqa korxona tarkibiga qo‘shilish — QQS",5],
+    [48,"EHF/ONKM cheki rasmiylashtirilib, hisobot taqdim etmasdan boshqa korxona tarkibiga qo‘shilish — AOS",5],
+    [49,"Bankrotlik asosida tugatilgan subyektlar oldidagi majburiyatlarni hisobdan chiqarish natijasida soliq hisoblanishi",4],
+  ]},
+  {title:"QQS bo‘yicha maxsus holatlar", items:[
+    [37,"QQS guvohnomasining nofaolligi",3],
+    [38,"QQSni qoplash bo‘yicha murojaatda aniqlangan soliq xavflari",4],
+    [39,"QQSni qoplash bo‘yicha rad etilgan murojaat",4],
+  ]},
+  {title:"Tashqi signallar va tekshiruv tarixi", items:[
+    [14,"Soliq hamkor orqali kelib tushgan tasdiqlangan murojaat",4],
+    [15,"Sud va huquqni muhofaza qiluvchi organlar so‘rovnomasi",4],
+    [21,"Jinoiy ish bo‘yicha hujjatli tekshiruv o‘tkazilganligi",5],
+    [40,"Kameral tekshiruv yakuni bilan soliq auditiga nomzod — talabnomaga javob bermagan",4],
+    [41,"Kameral tekshiruv yakuni bilan soliq auditiga nomzod — javob bergan, biroq asos inobatga olinmagan",3],
+    [42,"Soliq tekshiruvlari natijasida qo‘shimcha hisoblangan soliq summasining yuqoriligi",4],
+    [57,"Jismoniy va yuridik shaxslarning murojaati",2],
+    [58,"Ommaviy axborot vositalari orqali olingan ma’lumotlar",2],
+    [59,"“Avtokameral” tizimi orqali aniqlangan tafovutlarning bartaraf etilmaganligi",5],
+  ]},
+];
+
+const MAXTOTAL = DATA.reduce((s,c)=>s+c.items.reduce((s2,i)=>s2+i[2],0),0);
+const sevColor = {1:'var(--w1)',2:'var(--w2)',3:'var(--w3)',4:'var(--w4)',5:'var(--w5)'};
+const sevText = {1:'MINIMAL',2:'PAST',3:'O‘RTA',4:'YUQORI',5:'KRITIK'};
+
+function buildForm(){
+  const card = document.getElementById('formCard');
+  DATA.forEach((cat, ci)=>{
+    const div = document.createElement('div');
+    div.className = 'cat';
+    div.id = 'cat_'+ci;
+    const totalW = cat.items.reduce((s,i)=>s+i[2],0);
+    div.innerHTML = `
+      <div class="cat-head" onclick="toggleCat(${ci})">
+        <span class="cat-num">${ci+1}</span>
+        <span class="cat-title">${cat.title}</span>
+        <span class="cat-count" id="catcount_${ci}">0/${cat.items.length}</span>
+        <span class="cat-chevron">›</span>
+      </div>
+      <div class="cat-body">
+        ${cat.items.map(it=>`
+          <label class="item">
+            <input type="checkbox" data-cat="${ci}" data-w="${it[2]}" onchange="render()">
+            <span class="item-text"><span class="item-num">${it[0]}.</span>${it[1]}</span>
+            <span class="sev-tag" style="background:${sevColor[it[2]]}">${sevText[it[2]]}</span>
+          </label>
+        `).join('')}
+      </div>`;
+    card.appendChild(div);
+  });
+}
+
+function toggleCat(ci){
+  document.getElementById('cat_'+ci).classList.toggle('open');
+}
+function toggleAll(open){
+  document.querySelectorAll('.cat').forEach(c=>c.classList.toggle('open', open));
+}
+function clearAll(){
+  document.querySelectorAll('.item input[type=checkbox]').forEach(cb=>cb.checked=false);
+  render();
+}
+
+function render(){
+  const boxes = Array.from(document.querySelectorAll('.item input[type=checkbox]'));
+  let total = 0, checkedCount = 0;
+  const catSums = DATA.map(()=>({sum:0, max:0, count:0, total:0}));
+  DATA.forEach((cat,ci)=>{ catSums[ci].max = cat.items.reduce((s,i)=>s+i[2],0); catSums[ci].total = cat.items.length; });
+
+  const flagged = [];
+  boxes.forEach(cb=>{
+    const ci = parseInt(cb.dataset.cat);
+    const w = parseInt(cb.dataset.w);
+    if(cb.checked){
+      total += w;
+      checkedCount++;
+      catSums[ci].sum += w;
+      catSums[ci].count++;
+      const label = cb.closest('.item').querySelector('.item-text').textContent.trim();
+      flagged.push({label, w});
+    }
+  });
+
+  DATA.forEach((cat,ci)=>{
+    document.getElementById('catcount_'+ci).textContent = catSums[ci].count+'/'+catSums[ci].total;
+  });
+
+  const score = (total/MAXTOTAL)*100;
+  document.getElementById('scoreVal').textContent = Math.round(score);
+  document.getElementById('flaggedCount').textContent = checkedCount+' / 59 band belgilandi';
+
+  let level, color;
+  if(score < 15){ level='PAST XAVF'; color='var(--green)'; }
+  else if(score < 32){ level='O‘RTA XAVF'; color='var(--amber)'; }
+  else if(score < 50){ level='YUQORI XAVF'; color='var(--orange)'; }
+  else { level='JUDA YUQORI XAVF'; color='var(--red)'; }
+
+  const lbl = document.getElementById('riskLabel');
+  lbl.textContent = level;
+  lbl.style.background = color;
+  lbl.style.color = '#16283D';
+
+  const frac = clamp01(score/100);
+  document.getElementById('arcFill').setAttribute('stroke-dashoffset', 283 - 283*frac);
+  document.getElementById('arcFill').setAttribute('stroke', color);
+  const angle = -90 + frac*180;
+  const rad = angle * Math.PI/180;
+  document.getElementById('needle').setAttribute('x2', 110 + 72*Math.sin(rad));
+  document.getElementById('needle').setAttribute('y2', 110 - 72*Math.cos(rad));
+
+  const bd = document.getElementById('catBreakdown');
+  bd.innerHTML = '';
+  DATA.map((cat,ci)=>({name:cat.title, sum:catSums[ci].sum, max:catSums[ci].max}))
+    .sort((a,b)=>(b.sum/b.max)-(a.sum/a.max))
+    .forEach(row=>{
+      const pct = row.max ? (row.sum/row.max)*100 : 0;
+      const el = document.createElement('div');
+      el.innerHTML = `
+        <div class="cb-row">
+          <div class="cb-name">${row.name}</div>
+          <div class="cb-val">${row.sum}/${row.max}</div>
+          <div class="cb-bar-track"><div class="cb-bar-fill" style="width:${pct}%"></div></div>
+        </div>`;
+      bd.appendChild(el);
+    });
+
+  const fl = document.getElementById('flagList');
+  fl.innerHTML = '';
+  if(flagged.length === 0){
+    fl.innerHTML = '<li class="none">Hozircha hech narsa belgilanmagan</li>';
+  } else {
+    flagged.sort((a,b)=>b.w-a.w).forEach(f=>{
+      const li = document.createElement('li');
+      li.textContent = f.label;
+      fl.appendChild(li);
+    });
+  }
+}
+
+function clamp01(v){return Math.max(0,Math.min(1,v));}
+
+buildForm();
+render();
+</script>
+</body>
+</html>

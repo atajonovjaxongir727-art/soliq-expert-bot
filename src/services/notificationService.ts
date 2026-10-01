@@ -107,7 +107,7 @@ export async function notifyUserPaymentStatus(questionId: number, approved: bool
   try {
     const q = await prisma.question.findUnique({
       where: { id: questionId },
-      include: { user: true },
+      include: { user: true, service: true },
     });
 
     if (!q) return;
@@ -116,6 +116,27 @@ export async function notifyUserPaymentStatus(questionId: number, approved: bool
     let text = '';
 
     if (approved) {
+      if (q.service?.code === 'RISK_CALC_11' || q.service?.code === 'RISK_CALC_59') {
+        const calcUrl = q.service?.code === 'RISK_CALC_11'
+          ? `${config.webUrl}/calculator/11-mezon`
+          : `${config.webUrl}/calculator/59-mezon`;
+        const calcName = lang === 'ru' ? q.service.nameRu : q.service.nameUz;
+
+        const text = lang === 'ru'
+          ? `✅ <b>Оплата по калькулятору успешно подтверждена!</b>\n\nВам открыт доступ к: <b>${calcName}</b>.\n\nНажмите кнопку ниже, чтобы открыть калькулятор и рассчитать свой налоговый риск:`
+          : `✅ <b>Kalkulyator uchun to‘lovingiz tasdiqlandi!</b>\n\nSizga ruxsat ochildi: <b>${calcName}</b>.\n\nQuyidagi tugma orqali kalkulyatorni ochib, o‘z korxonangiz ko‘rsatkichlarini kiritgan holda soliq riskini aniqlashingiz mumkin:`;
+
+        const kb = new InlineKeyboard()
+          .webApp(lang === 'ru' ? "🚀 Открыть калькулятор" : "🚀 Kalkulyatorni ochish", calcUrl).row()
+          .url(lang === 'ru' ? "🌐 Открыть в браузере" : "🌐 Brauzerda ochish", calcUrl);
+
+        await botInstance.api.sendMessage(q.user.telegramId, text, {
+          parse_mode: 'HTML',
+          reply_markup: kb,
+        });
+        return;
+      }
+
       text = lang === 'ru'
         ? `✅ <b>Ваша оплата по вопросу #${q.questionNumber} успешно подтверждена!</b>\n\nСпециалист приступил к рассмотрению. Как только ответ будет готов, вы получите сообщение в этом боте.`
         : `✅ <b>#${q.questionNumber}-sonli savolingiz uchun to‘lov tasdiqlandi!</b>\n\nMutaxassis tahlilni boshladi. Javob tayyor bo‘lishi bilanoq ushbu bot orqali sizga yuboriladi.`;

@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Soliq Risk Kalkulyatori — 11 mezon (2026)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#16283D;
+    --ink-2:#1F3A54;
+    --paper:#ECE9E1;
+    --paper-2:#F7F5EF;
+    --line:#C7C0AE;
+    --accent:#2E6E8E;
+    --accent-2:#245670;
+    --muted:#5B6672;
+    --green:#3E7A4F;
+    --amber:#B9862E;
+    --orange:#C1602E;
+    --red:#A93226;
+    --green-bg:#E4EDE3;
+    --amber-bg:#F3E9D6;
+    --orange-bg:#F3E0D1;
+    --red-bg:#F0DAD5;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'IBM Plex Sans', sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:0 24px 64px;}
+
+  header.masthead{
+    background:var(--ink);
+    color:var(--paper-2);
+    padding:36px 24px 28px;
+    margin-bottom:36px;
+  }
+  .masthead-inner{max-width:1180px;margin:0 auto;}
+  .eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11.5px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:#9FB6C7;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:14px;
+  }
+  .eyebrow::before{content:"";width:7px;height:7px;background:#7FA8C2;border-radius:50%;display:inline-block;}
+  h1{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:clamp(28px,4vw,42px);
+    margin:0 0 8px;
+    letter-spacing:-.01em;
+  }
+  header .sub{
+    color:#C4CDD6;
+    font-size:15px;
+    max-width:640px;
+    line-height:1.55;
+    margin:0;
+  }
+  header .sub b{color:#E9EDF0;font-weight:600;}
+
+  .grid{
+    display:grid;
+    grid-template-columns:1.5fr 1fr;
+    gap:28px;
+    align-items:start;
+  }
+  @media (max-width:900px){ .grid{grid-template-columns:1fr;} }
+
+  .form-card{
+    background:var(--paper-2);
+    border:1px solid var(--line);
+  }
+  .section{
+    padding:24px 26px;
+    border-bottom:1px dashed var(--line);
+  }
+  .section:last-child{border-bottom:none;}
+  .section-head{
+    display:flex;
+    align-items:baseline;
+    gap:12px;
+    margin-bottom:14px;
+  }
+  .section-num{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    color:var(--accent);
+    border:1px solid var(--accent);
+    width:24px;height:24px;
+    border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;
+  }
+  .section-title{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:17px;
+  }
+  .section-help{
+    font-size:12.5px;
+    color:var(--muted);
+    margin:0 0 14px 36px;
+    line-height:1.5;
+  }
+  .field-row{
+    margin-left:36px;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+  }
+  label.flabel{
+    font-size:13px;
+    font-weight:500;
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+  }
+  .flabel .val{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12.5px;
+    color:var(--accent-2);
+    font-weight:600;
+    white-space:nowrap;
+  }
+  input[type=range]{
+    -webkit-appearance:none;
+    width:100%;
+    height:4px;
+    background:var(--line);
+    border-radius:2px;
+    outline:none;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    width:16px;height:16px;
+    border-radius:50%;
+    background:var(--accent);
+    border:2px solid var(--paper-2);
+    box-shadow:0 0 0 1px var(--accent);
+    cursor:pointer;
+    margin-top:-6px;
+  }
+  input[type=range]::-moz-range-thumb{
+    width:16px;height:16px;border-radius:50%;
+    background:var(--accent);border:2px solid var(--paper-2);
+    box-shadow:0 0 0 1px var(--accent);cursor:pointer;
+  }
+  select, input[type=number]{
+    font-family:'IBM Plex Sans', sans-serif;
+    font-size:13.5px;
+    padding:8px 10px;
+    border:1px solid var(--line);
+    background:#fff;
+    color:var(--ink);
+    width:100%;
+  }
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .contrib{
+    margin-left:36px;
+    margin-top:2px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    color:var(--muted);
+  }
+
+  /* RESULT PANEL */
+  .result-panel{
+    position:sticky;
+    top:20px;
+    background:var(--ink);
+    color:var(--paper-2);
+    padding:28px 26px 24px;
+    border:1px solid var(--ink);
+  }
+  .result-title{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    color:#9FB6C7;
+    margin-bottom:18px;
+  }
+  .gauge-wrap{display:flex;flex-direction:column;align-items:center;margin-bottom:8px;}
+  .score-big{
+    font-family:'Fraunces', serif;
+    font-weight:700;
+    font-size:56px;
+    line-height:1;
+    margin-top:-8px;
+  }
+  .score-max{font-family:'IBM Plex Mono',monospace;font-size:14px;color:#9FB6C7;}
+  .risk-label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:13px;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    font-weight:600;
+    padding:6px 14px;
+    border-radius:2px;
+    margin-top:10px;
+  }
+  .breakdown{margin-top:22px;}
+  .bd-row{
+    display:grid;
+    grid-template-columns:1fr 40px;
+    gap:8px;
+    align-items:center;
+    font-size:12px;
+    padding:5px 0;
+    border-bottom:1px solid #2A3F55;
+  }
+  .bd-row .bd-name{color:#C4CDD6;}
+  .bd-row .bd-val{font-family:'IBM Plex Mono',monospace;text-align:right;color:#E9EDF0;}
+  .bd-bar-track{grid-column:1/3;height:3px;background:#2A3F55;border-radius:2px;overflow:hidden;margin-top:2px;}
+  .bd-bar-fill{height:100%;background:var(--accent);}
+
+  .reco{
+    margin-top:22px;
+    padding-top:18px;
+    border-top:1px dashed #3B5570;
+  }
+  .reco-title{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    color:#9FB6C7;
+    margin-bottom:10px;
+  }
+  .reco ul{margin:0;padding-left:18px;font-size:12.5px;line-height:1.6;color:#DCE3E8;}
+  .reco li{margin-bottom:5px;}
+
+  footer.note{
+    margin-top:36px;
+    font-size:12px;
+    color:var(--muted);
+    line-height:1.6;
+    border-top:1px dashed var(--line);
+    padding-top:18px;
+  }
+  footer.note b{color:var(--ink);}
+</style>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script>
+  if (window.Telegram && window.Telegram.WebApp) {
+    window.Telegram.WebApp.ready();
+    window.Telegram.WebApp.expand();
+  }
+</script>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="masthead-inner">
+    <div class="eyebrow">Ekspert modeli · Norasmiy baholash vositasi</div>
+    <h1>Soliq Risk Kalkulyatori 2026</h1>
+    <p class="sub">Soliq to‘lovchining faoliyatini <b>Soliq qo‘mitasi risklarni boshqarish mantig‘iga yaqin</b> mezonlar asosida tahlil qiladigan norasmiy baholash modeli. 11 ta ko‘rsatkich bo‘yicha 100 balllik shkalada risk darajasini aniqlaydi.</p>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="grid">
+
+    <!-- FORM -->
+    <div class="form-card">
+
+      <div class="section">
+        <div class="section-head"><span class="section-num">1</span><span class="section-title">Soliq yuki koeffitsienti</span></div>
+        <p class="section-help">To‘langan soliqlar summasining yalpi tushumga nisbati. Tarmoq bo‘yicha me’yoriy chegaradan past bo‘lsa — risk ortadi.</p>
+        <div class="field-row">
+          <div class="two-col">
+            <div>
+              <label class="flabel">Faoliyat tarmog‘i</label>
+              <select id="tarmoq">
+                <option value="1.0">Savdo</option>
+                <option value="3.0">Sanoat / ishlab chiqarish</option>
+                <option value="2.0">Qurilish</option>
+                <option value="4.0" selected>Xizmat ko‘rsatish</option>
+                <option value="2.5">Boshqa</option>
+              </select>
+            </div>
+            <div>
+              <label class="flabel">Soliq yuki <span class="val" id="v_soliqYuki">2.0%</span></label>
+              <input type="range" id="soliqYuki" min="0" max="10" step="0.1" value="2.0">
+            </div>
+          </div>
+        </div>
+        <div class="contrib" id="c_1">Ball: 0 / 12</div>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><span class="section-num">2</span><span class="section-title">Rentabellik darajasi</span></div>
+        <p class="section-help">Sof foydaning tushumga nisbati (%). Tarmoq o‘rtachasi taxminan 10% deb olinadi.</p>
+        <div class="field-row">
+          <label class="flabel">Rentabellik <span class="val" id="v_rentabellik">10%</span></label>
+          <input type="range" id="rentabellik" min="-20" max="40" step="1" value="10">
+        </div>
+        <div class="contrib" id="c_2">Ball: 0 / 8</div>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><span class="section-num">3</span><span class="section-title">QQS bo‘yicha chegirmalar ulushi</span></div>
+        <p class="section-help">Hisobga olingan QQS summasining hisoblangan QQS summasiga nisbati. 98% dan yuqori bo‘lishi odatda “sun’iy chegirma” belgisi hisoblanadi.</p>
+        <div class="field-row">
+          <label class="flabel">Chegirmalar ulushi <span class="val" id="v_qqs">85%</span></label>
+          <input type="range" id="qqs" min="0" max="100" step="1" value="85">
+        </div>
+        <div class="contrib" id="c_3">Ball: 0 / 10</div>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><span class="section-num">4</span><span class="section-title">Ketma-ket zararli davr</span></div>
+        <p class="section-help">Necha yil ketma-ket soliq deklaratsiyasida zarar ko‘rsatilgan.</p>
+        <div class="field-row">
+          <label class="flabel">Zararli yillar soni <span class="val" id="v_zarar">0 yil</span></label>
+          <input type="range" id="zarar" min="0" max="5" step="1" value="0">
+        </div>
+        <div class="contrib" id="c_4">Ball: 0 / 10</div>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><span class="section-num">5</span><span class="section-title">O‘rtacha ish haqi darajasi</span></div>
+        <p class="section-help">Korxonadagi o‘rtacha oylik ish haqining shu tarmoq bo‘yicha o‘rtacha ish haqiga nisbati (%). 100% dan past — “soliqni kamaytirish” belgisi bo‘lishi mumkin.</p>
+        <div class="field-row">
+          <label class="flabel">Tarmoq o‘rtachasiga nisbatan <span class="val" id="v_ishhaqi">100%</span></label>
+          <input type="range" id="ishhaqi" min="30" max="200" step="1" value="100">
+        </div>
+        <div class="contrib" id="c_5">Ball: 0 / 8</div>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><span class="section-num">6</span><span class="section-title">Xodim boshiga tushum anomaliyasi</span></div>
+        <p class="section-help">Bitta xodimga to‘g‘ri keladigan yillik tushumning tarmoq o‘rtachasidan necha barobar farqi.</p>
+        <div class="field-row">
+          <label class="flabel">Farq darajasi <span class="val" id="v_xodim">1.0×</span></label>
+          <input type="range" id="xodim" min="0.2" max="10" step="0.1" value="1.0">
+        </div>
+        <div class="contrib" id="c_6">Ball: 0 / 7</div>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><span class="section-num">7</span><span class="section-title">“Xavfli” kontragentlar ulushi</span></div>
+        <p class="section-help">Fаoliyati shubhali yoki soliq to‘lovchilar reytingida past baholangan kontragentlar bilan operatsiyalarning umumiy aylanmadagi ulushi (%). Eng yuqori vaznga ega mezon.</p>
+        <div class="field-row">
+          <label class="flabel">Xavfli kontragentlar <span class="val" id="v_kontragent">5%</span></label>
+          <input type="range" id="kontragent" min="0" max="100" step="1" value="5">
+        </div>
+        <div class="contrib" id="c_7">Ball: 0 / 15</div>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><span class="section-num">8</span><span class="section-title">Naqd pul aylanmasi ulushi</span></div>
+        <p class="section-help">Kassadan naqd pul chiqimlarining umumiy aylanmaga nisbati (%).</p>
+        <div class="field-row">
+          <label class="flabel">Naqd operatsiyalar ulushi <span class="val" id="v_naqd">10%</span></label>
+          <input type="range" id="naqd" min="0" max="100" step="1" value="10">
+        </div>
+        <div class="contrib" id="c_8">Ball: 0 / 8</div>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><span class="section-num">9</span><span class="section-title">Manzil / rahbariyat o‘zgarishi</span></div>
+        <p class="section-help">Oxirgi 3 yil ichida yuridik manzil yoki rahbar necha marta almashtirilgan.</p>
+        <div class="field-row">
+          <label class="flabel">O‘zgarishlar soni <span class="val" id="v_manzil">0 marta</span></label>
+          <input type="range" id="manzil" min="0" max="5" step="1" value="0">
+        </div>
+        <div class="contrib" id="c_9">Ball: 0 / 7</div>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><span class="section-num">10</span><span class="section-title">Tushum va soliq o‘sishi nomutanosibligi</span></div>
+        <p class="section-help">Yillik tushum o‘sish sur’ati bilan soliq to‘lovlari o‘sish sur’ati orasidagi farq (foiz punktlarida).</p>
+        <div class="field-row">
+          <div class="two-col">
+            <div>
+              <label class="flabel">Tushum o‘sishi <span class="val" id="v_tushumOsish">10%</span></label>
+              <input type="range" id="tushumOsish" min="-30" max="100" step="1" value="10">
+            </div>
+            <div>
+              <label class="flabel">Soliq o‘sishi <span class="val" id="v_soliqOsish">10%</span></label>
+              <input type="range" id="soliqOsish" min="-30" max="100" step="1" value="10">
+            </div>
+          </div>
+        </div>
+        <div class="contrib" id="c_10">Ball: 0 / 10</div>
+      </div>
+
+      <div class="section">
+        <div class="section-head"><span class="section-num">11</span><span class="section-title">Statutkapital / aylanma nomutanosibligi</span></div>
+        <p class="section-help">Yillik aylanmaning statutkapitalga nisbati. Juda yuqori nisbat kapitalning aylanma hajmiga mos emasligini ko‘rsatishi mumkin.</p>
+        <div class="field-row">
+          <label class="flabel">Aylanma / statutkapital <span class="val" id="v_kapital">50×</span></label>
+          <input type="range" id="kapital" min="1" max="2000" step="1" value="50">
+        </div>
+        <div class="contrib" id="c_11">Ball: 0 / 5</div>
+      </div>
+
+    </div>
+
+    <!-- RESULT -->
+    <div class="result-panel">
+      <div class="result-title">Umumiy natija</div>
+      <div class="gauge-wrap">
+        <svg width="220" height="130" viewBox="0 0 220 130">
+          <path d="M 20 110 A 90 90 0 0 1 200 110" fill="none" stroke="#2A3F55" stroke-width="14" stroke-linecap="round"/>
+          <path id="arcFill" d="M 20 110 A 90 90 0 0 1 200 110" fill="none" stroke="var(--accent)" stroke-width="14" stroke-linecap="round" stroke-dasharray="283" stroke-dashoffset="283"/>
+          <line id="needle" x1="110" y1="110" x2="110" y2="35" stroke="#F7F5EF" stroke-width="2.5"/>
+          <circle cx="110" cy="110" r="6" fill="#F7F5EF"/>
+        </svg>
+        <div class="score-big"><span id="scoreVal">0</span><span class="score-max"> / 100</span></div>
+        <div class="risk-label" id="riskLabel">PAST XAVF</div>
+      </div>
+
+      <div class="breakdown" id="breakdown"></div>
+
+      <div class="reco">
+        <div class="reco-title">Ekspert tavsiyasi</div>
+        <ul id="recoList"></ul>
+      </div>
+    </div>
+
+  </div>
+
+  <footer class="note">
+    <b>Eslatma:</b> Bu — soliq eksperti tomonidan ochiq manbalarda ma’lum bo‘lgan risk-mezonlar (soliq yuki, rentabellik, QQS chegirmalari, xavfli kontragentlar, naqd aylanma va h.k.) asosida tuzilgan <b>norasmiy ta’lim/tahlil modeli</b>. Soliq qo‘mitasining ichki hisoblash algoritmi va aniq vaznlar rasman e’lon qilinmagan, shuning uchun bu kalkulyator rasmiy risk reytingini almashtirmaydi va uning aniq nusxasi emas — faqat yo‘nalish bo‘yicha taxminiy baholash beradi. Aniq huquqiy yoki soliq bo‘yicha qaror qabul qilishdan oldin litsenziyalangan soliq maslahatchisi yoki auditor bilan maslahatlashing.
+  </footer>
+</div>
+
+<script>
+function $(id){return document.getElementById(id);}
+
+function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
+
+function compute(){
+  // 1. Soliq yuki
+  const ref = parseFloat($('tarmoq').value);
+  const sy = parseFloat($('soliqYuki').value);
+  $('v_soliqYuki').textContent = sy.toFixed(1)+'%';
+  let p1 = sy >= ref ? 0 : clamp((1 - sy/ref) * 12, 0, 12);
+
+  // 2. Rentabellik
+  const rent = parseFloat($('rentabellik').value);
+  $('v_rentabellik').textContent = rent+'%';
+  const refRent = 10;
+  let p2 = rent >= refRent ? 0 : clamp((1 - rent/refRent) * 8, 0, 8);
+  if(rent < 0) p2 = 8;
+
+  // 3. QQS
+  const qqs = parseFloat($('qqs').value);
+  $('v_qqs').textContent = qqs+'%';
+  let p3 = qqs <= 80 ? 0 : clamp(((qqs-80)/20) * 10, 0, 10);
+
+  // 4. Zarar
+  const zarar = parseInt($('zarar').value);
+  $('v_zarar').textContent = zarar+' yil';
+  let p4 = clamp(zarar * 3.3, 0, 10);
+
+  // 5. Ish haqi
+  const ih = parseFloat($('ishhaqi').value);
+  $('v_ishhaqi').textContent = ih+'%';
+  let p5 = ih >= 100 ? 0 : clamp((1 - ih/100) * 8, 0, 8);
+
+  // 6. Xodim/aylanma anomaliya (juda past yoki juda yuqori bo'lsa risk)
+  const xod = parseFloat($('xodim').value);
+  $('v_xodim').textContent = xod.toFixed(1)+'×';
+  let dev = Math.abs(Math.log2(xod));
+  let p6 = clamp(dev * 3.5, 0, 7);
+
+  // 7. Kontragent
+  const kon = parseFloat($('kontragent').value);
+  $('v_kontragent').textContent = kon+'%';
+  let p7 = clamp((kon/100) * 15, 0, 15);
+
+  // 8. Naqd
+  const naqd = parseFloat($('naqd').value);
+  $('v_naqd').textContent = naqd+'%';
+  let p8 = naqd <= 15 ? 0 : clamp(((naqd-15)/85) * 8, 0, 8);
+
+  // 9. Manzil
+  const manzil = parseInt($('manzil').value);
+  $('v_manzil').textContent = manzil+' marta';
+  let p9 = clamp(manzil * 2.3, 0, 7);
+
+  // 10. O'sish nomutanosibligi
+  const tOsish = parseFloat($('tushumOsish').value);
+  const sOsish = parseFloat($('soliqOsish').value);
+  $('v_tushumOsish').textContent = tOsish+'%';
+  $('v_soliqOsish').textContent = sOsish+'%';
+  const gap = tOsish - sOsish;
+  let p10 = gap <= 5 ? 0 : clamp(((gap-5)/40) * 10, 0, 10);
+
+  // 11. Statutkapital
+  const kap = parseFloat($('kapital').value);
+  $('v_kapital').textContent = kap+'×';
+  let p11 = kap <= 100 ? 0 : clamp(((kap-100)/900) * 5, 0, 5);
+
+  const items = [
+    {name:'Soliq yuki', pts:p1, max:12},
+    {name:'Rentabellik', pts:p2, max:8},
+    {name:'QQS chegirmalari', pts:p3, max:10},
+    {name:'Ketma-ket zarar', pts:p4, max:10},
+    {name:'Ish haqi darajasi', pts:p5, max:8},
+    {name:'Xodim/aylanma anomaliyasi', pts:p6, max:7},
+    {name:'Xavfli kontragentlar', pts:p7, max:15},
+    {name:'Naqd pul aylanmasi', pts:p8, max:8},
+    {name:'Manzil/rahbar o‘zgarishi', pts:p9, max:7},
+    {name:'Tushum-soliq nomutanosibligi', pts:p10, max:10},
+    {name:'Statutkapital anomaliyasi', pts:p11, max:5},
+  ];
+
+  for(let i=1;i<=11;i++){
+    const it = items[i-1];
+    $('c_'+i).textContent = 'Ball: '+it.pts.toFixed(1)+' / '+it.max;
+  }
+
+  const total = items.reduce((s,i)=>s+i.pts,0);
+  return {total: clamp(total,0,100), items};
+}
+
+function render(){
+  const {total, items} = compute();
+  $('scoreVal').textContent = Math.round(total);
+
+  let level, color, bg;
+  if(total < 25){ level='PAST XAVF'; color='var(--green)'; }
+  else if(total < 50){ level='O‘RTA XAVF'; color='var(--amber)'; }
+  else if(total < 75){ level='YUQORI XAVF'; color='var(--orange)'; }
+  else { level='JUDA YUQORI XAVF'; color='var(--red)'; }
+
+  const lbl = $('riskLabel');
+  lbl.textContent = level;
+  lbl.style.background = color;
+  lbl.style.color = '#16283D';
+
+  // gauge arc: 283 total length (~pi*90), needle -90..90deg
+  const frac = total/100;
+  $('arcFill').setAttribute('stroke-dashoffset', 283 - 283*frac);
+  $('arcFill').setAttribute('stroke', color);
+  const angle = -90 + frac*180;
+  const rad = angle * Math.PI/180;
+  const nx = 110 + 72*Math.sin(rad);
+  const ny = 110 - 72*Math.cos(rad);
+  $('needle').setAttribute('x2', nx);
+  $('needle').setAttribute('y2', ny);
+
+  // breakdown
+  const bd = $('breakdown');
+  bd.innerHTML = '';
+  items.slice().sort((a,b)=>b.pts-a.pts).forEach(it=>{
+    const pct = (it.pts/it.max)*100;
+    const row = document.createElement('div');
+    row.innerHTML = `
+      <div class="bd-row">
+        <div class="bd-name">${it.name}</div>
+        <div class="bd-val">${it.pts.toFixed(1)}/${it.max}</div>
+        <div class="bd-bar-track"><div class="bd-bar-fill" style="width:${pct}%"></div></div>
+      </div>`;
+    bd.appendChild(row);
+  });
+
+  // recommendations
+  const reco = $('recoList');
+  reco.innerHTML = '';
+  const notes = [];
+  if(items[6].pts > 8) notes.push('Xavfli kontragentlar ulushini kamaytiring — bu eng og‘ir vaznga ega mezon va yakka o‘zi tekshiruv sababi bo‘lishi mumkin.');
+  if(items[0].pts > 6) notes.push('Soliq yukini tarmoq o‘rtachasiga yaqinlashtiring yoki past bo‘lish sababini hujjatlashtirib qo‘ying.');
+  if(items[2].pts > 6) notes.push('QQS bo‘yicha chegirmalar ulushi yuqori — hisob-fakturalar va bitimlarning haqiqiyligini tekshirib chiqing.');
+  if(items[3].pts > 6) notes.push('Ketma-ket zararli faoliyat alohida e’tiborga olinadi — zararning iqtisodiy asoslarini tayyorlab qo‘ying.');
+  if(items[7].pts > 5) notes.push('Naqd pul aylanmasi ulushini kamaytirish nazoratga tortilish ehtimolini pasaytiradi.');
+  if(items[9].pts > 6) notes.push('Tushum o‘sishi soliq to‘lovlari o‘sishidan sezilarli oshib ketmoqda — sabablarini tahlil qiling.');
+  if(notes.length === 0) notes.push('Hozirgi ko‘rsatkichlar bo‘yicha alohida ogohlantiruvchi belgi aniqlanmadi.');
+  notes.forEach(n=>{
+    const li = document.createElement('li');
+    li.textContent = n;
+    reco.appendChild(li);
+  });
+}
+
+document.querySelectorAll('input[type=range], select').forEach(el=>{
+  el.addEventListener('input', render);
+  el.addEventListener('change', render);
+});
+
+render();
+</script>
+</body>
+</html>

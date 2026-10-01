@@ -2,7 +2,7 @@
 import { prisma, logActivity } from '../database/db.js';
 import { config } from '../config/index.js';
 import { messages, Language } from './i18n.js';
-import { getMainMenu, getLanguageKeyboard, getCancelKeyboard, getFileStepKeyboard } from './keyboards.js';
+import { getMainMenu, getLanguageKeyboard, getCancelKeyboard, getFileStepKeyboard, getPaymentConfirmKeyboard, getRiskCalcKeyboard } from './keyboards.js';
 import { analyzeTaxQuestion } from '../services/aiService.js';
 import { notifyAdminNewQuestion, setBotInstance } from '../services/notificationService.js';
 import { submitManualPaymentReceipt, approvePayment, rejectPayment } from '../services/paymentService.js';
@@ -139,6 +139,32 @@ export function createBot(): Bot<MyContext> {
     });
   });
 
+  // Main Menu: 📊 Soliq riskini aniqlang
+  bot.hears([
+    messages.uz.menu.calcRisk,
+    messages.ru.menu.calcRisk,
+    '📊 Soliq riskini aniqlang',
+    '📊 Soliq riskini aniqlash',
+    '📊 Оценка налогового риска',
+  ], async (ctx) => {
+    const tgId = ctx.from!.id.toString();
+    const lang = await getUserLang(tgId);
+    const isAdmin = tgId === config.adminTelegramId;
+
+    let kb = new InlineKeyboard();
+    if (isAdmin) {
+      kb.webApp("🚀 11 mezon (Admin)", `${config.webUrl}/calculator/11-mezon`).row()
+        .webApp("🚀 59 mezon (Admin)", `${config.webUrl}/calculator/59-mezon`).row();
+    }
+    kb.text(lang === 'ru' ? "🔹 11 критериев (Экспресс) — 50 000 сум" : "🔹 11 ta mezon (Tezkor) — 50 000 so‘m", "buy_calc:11").row()
+      .text(lang === 'ru' ? "🏆 59 критериев (Профессионал) — 150 000 сум" : "🏆 59 ta mezon (Professional) — 150 000 so‘m", "buy_calc:59");
+
+    await ctx.reply(messages[lang].calcRiskIntro, {
+      parse_mode: 'Markdown',
+      reply_markup: kb,
+    });
+  });
+
   // Main Menu: 💰 Tariflar
   bot.hears([messages.uz.menu.tariffs, messages.ru.menu.tariffs, '💰 Tariflar', '💰 Тарифы'], async (ctx) => {
     const lang = await getUserLang(ctx.from!.id.toString());
@@ -241,6 +267,156 @@ export function createBot(): Bot<MyContext> {
       await ctx.reply(messages[newLang].languageChanged, {
         reply_markup: getMainMenu(newLang),
       });
+      return;
+    }
+
+    // Calculator purchase callback: format "buy_calc:11" or "buy_calc:59"
+    if (data.startsWith('buy_calc:')) {
+      const criteria = data.split(':')[1];
+      const serviceCode = criteria === '11' ? 'RISK_CALC_11' : 'RISK_CALC_59';
+      const tgId = ctx.from.id.toString();
+      const lang = await getUserLang(tgId);
+      const isAdmin = tgId === config.adminTelegramId;
+
+      await ctx.answerCallbackQuery();
+
+      const calcUrl = criteria === '11'
+        ? `${config.webUrl}/calculator/11-mezon`
+        : `${config.webUrl}/calculator/59-mezon`;
+      const calcTitle = criteria === '11'
+        ? (lang === 'ru' ? '11 критериев (Экспресс)' : '11 ta mezon (Tezkor tahlil)')
+        : (lang === 'ru' ? '59 критериев (Профессионал)' : '59 ta mezon (Professional tahlil)');
+
+      // If admin, give instant direct access
+      if (isAdmin) {
+        const kb = new InlineKeyboard()
+          .webApp(lang === 'ru' ? "🚀 Открыть калькулятор" : "🚀 Kalkulyatorni ochish", calcUrl).row()
+          .url(lang === 'ru' ? "🌐 В браузере" : "🌐 Brauzerda ochish", calcUrl);
+        await ctx.reply(
+          lang === 'ru'
+            ? `👑 <b>Администраторский доступ</b>\n\nКалькулятор: <b>${calcTitle}</b>:`
+            : `👑 <b>Administrator huquqi</b>\n\nKalkulyator: <b>${calcTitle}</b>:`,
+          { parse_mode: 'HTML', reply_markup: kb }
+        );
+        return;
+      }
+
+      // Ensure user exists in database
+      let user = await prisma.user.findUnique({ where: { telegramId: tgId } });
+      if (!user) {
+        user = await prisma.user.create({
+          data: {
+            telegramId: tgId,
+            username: ctx.from.username || null,
+            firstName: ctx.from.first_name || null,
+            lastName: ctx.from.last_name || null,
+            language: lang,
+          },
+        });
+      }
+
+      // Ensure service exists in database
+      let service = await prisma.service.findUnique({ where: { code: serviceCode } });
+      if (!service) {
+        const defaultPrice = criteria === '11' ? 50000 : 150000;
+        service = await prisma.service.create({
+          data: {
+            code: serviceCode,
+            nameUz: criteria === '11' ? "Soliq riskini aniqlash (11 ta mezon)" : "To‘liq soliq riski kalkulyatori (59 ta mezon)",
+            nameRu: criteria === '11' ? "Оценка налогового риска (11 критериев)" : "Полный калькулятор налогового риска (59 критериев)",
+            descriptionUz: criteria === '11' ? "11 ta mezon bo‘yicha tezkor soliq xavfini avtomatlashtirilgan kalkulyatori" : "59 ta mezon bo‘yicha chuqur professional soliq xavfini aniqlash kalkulyatori",
+            descriptionRu: criteria === '11' ? "Экспресс-калькулятор оценки налогового риска по 11 критериям" : "Профессиональный калькулятор налоговых рисков по 59 критериям",
+            price: defaultPrice,
+            priceText: `${defaultPrice.toLocaleString('uz-UZ')} so‘m`,
+            sortOrder: criteria === '11' ? 6 : 7,
+            isActive: true,
+          },
+        });
+      }
+
+      // Check if user already purchased and has active access
+      const existingPaid = await prisma.question.findFirst({
+        where: {
+          userId: user.id,
+          serviceId: service.id,
+          OR: [
+            { status: 'COMPLETED' },
+            { payments: { some: { status: 'APPROVED' } } },
+          ],
+        },
+      });
+
+      if (existingPaid) {
+        const kb = new InlineKeyboard()
+          .webApp(lang === 'ru' ? "🚀 Открыть калькулятор" : "🚀 Kalkulyatorni ochish", calcUrl).row()
+          .url(lang === 'ru' ? "🌐 Открыть в браузере" : "🌐 Brauzerda ochish", calcUrl);
+        await ctx.reply(
+          lang === 'ru'
+            ? `✅ У вас уже есть оплаченный доступ к: <b>${calcTitle}</b>!\n\nНажмите кнопку ниже для запуска:`
+            : `✅ Sizda ushbu kalkulyatordan foydalanish uchun to‘langan ruxsat mavjud: <b>${calcTitle}</b>!\n\nQuyidagi tugma orqali ishga tushiring:`,
+          { parse_mode: 'HTML', reply_markup: kb }
+        );
+        return;
+      }
+
+      // Find existing pending question or create a new one
+      let questionRecord = await prisma.question.findFirst({
+        where: {
+          userId: user.id,
+          serviceId: service.id,
+          status: 'PAYMENT_PENDING',
+        },
+        orderBy: { id: 'desc' },
+      });
+
+      if (!questionRecord) {
+        const lastQ = await prisma.question.findFirst({ orderBy: { id: 'desc' } });
+        const qNum = lastQ ? lastQ.questionNumber + 1 : 1024;
+        questionRecord = await prisma.question.create({
+          data: {
+            questionNumber: qNum,
+            userId: user.id,
+            serviceId: service.id,
+            questionText: criteria === '11' ? "Soliq xavfini aniqlash (11 mezon tezkor kalkulyator)" : "Soliq xavfini aniqlash (59 mezon chuqur tahlil kalkulyatori)",
+            status: 'PAYMENT_PENDING',
+            price: service.price,
+            aiCategory: "Soliq xavfi kalkulyatori",
+            aiSummary: criteria === '11' ? "11 ta mezonli kalkulyator xaridi" : "59 ta mezonli kalkulyator xaridi",
+          },
+        });
+      }
+
+      ctx.session.step = 'AWAITING_RECEIPT';
+      ctx.session.activeQuestionId = questionRecord.id;
+
+      const cardSetting = await prisma.setting.findUnique({ where: { key: 'payment_card' } });
+      const holderSetting = await prisma.setting.findUnique({ where: { key: 'payment_card_holder' } });
+
+      const cardNum = cardSetting?.value || config.paymentCardNumber;
+      const cardHolder = holderSetting?.value || config.paymentCardHolder;
+      const priceFormatted = `${service.price.toLocaleString('uz-UZ')} so‘m`;
+
+      const summary = messages[lang].orderSummary(questionRecord.questionNumber, calcTitle, priceFormatted);
+      const payInstruction = messages[lang].paymentInstructions(cardNum, cardHolder, priceFormatted);
+
+      const fullMessage = `${summary}\n\n${payInstruction}`;
+
+      try {
+        await ctx.reply(fullMessage, {
+          parse_mode: 'Markdown',
+          reply_markup: getCancelKeyboard(lang),
+        });
+      } catch {
+        await ctx.reply(fullMessage, {
+          reply_markup: getCancelKeyboard(lang),
+        });
+      }
+
+      try {
+        await notifyAdminNewQuestion(questionRecord.id);
+      } catch (e) {
+        console.error('Admin notification error for calc purchase:', e);
+      }
       return;
     }
 
@@ -460,6 +636,7 @@ export function createBot(): Bot<MyContext> {
     // Check if user is typing question text (either explicitly in AWAITING_QUESTION_TEXT or typing a fresh question)
     const isMenuButton = [
       messages.uz.menu.askQuestion, messages.ru.menu.askQuestion,
+      messages.uz.menu.calcRisk, messages.ru.menu.calcRisk,
       messages.uz.menu.checkDocument, messages.ru.menu.checkDocument,
       messages.uz.menu.answerLetter, messages.ru.menu.answerLetter,
       messages.uz.menu.tariffs, messages.ru.menu.tariffs,

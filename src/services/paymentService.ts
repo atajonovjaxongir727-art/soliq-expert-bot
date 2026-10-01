@@ -36,7 +36,7 @@ export async function submitManualPaymentReceipt(questionId: number, userId: num
 export async function approvePayment(paymentId: number) {
   const payment = await prisma.payment.findUnique({
     where: { id: paymentId },
-    include: { question: true },
+    include: { question: { include: { service: true } } },
   });
 
   if (!payment) throw new Error('Payment not found');
@@ -49,9 +49,12 @@ export async function approvePayment(paymentId: number) {
     },
   });
 
+  const isCalculator = payment.question.service?.code === 'RISK_CALC_11' || payment.question.service?.code === 'RISK_CALC_59';
+  const newStatus = isCalculator ? 'COMPLETED' : 'IN_PROGRESS';
+
   await prisma.question.update({
     where: { id: payment.questionId },
-    data: { status: 'IN_PROGRESS' },
+    data: { status: newStatus },
   });
 
   await logActivity('PAYMENT_APPROVED', `To'lov tasdiqlandi (#${payment.question.questionNumber})`, { paymentId });
