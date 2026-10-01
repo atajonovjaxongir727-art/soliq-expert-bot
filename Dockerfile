@@ -36,4 +36,4 @@ ENV DATABASE_URL="file:./dev.db"
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "npx prisma db push && npx tsx src/database/seed.ts && node dist/index.js"]
+CMD ["sh", "-c", "npx prisma db push && node dist/database/seed.js && node dist/index.js"]
