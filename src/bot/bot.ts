@@ -1,3 +1,4 @@
+import jwt from 'jsonwebtoken';
 ﻿import { Bot, session, Context, SessionFlavor, InlineKeyboard } from 'grammy';
 import { prisma, logActivity } from '../database/db.js';
 import { config } from '../config/index.js';
@@ -153,8 +154,9 @@ export function createBot(): Bot<MyContext> {
 
     let kb = new InlineKeyboard();
     if (isAdmin) {
-      kb.webApp("🚀 11 mezon (Admin)", `${config.webUrl}/calculator/11-mezon`).row()
-        .webApp("🚀 59 mezon (Admin)", `${config.webUrl}/calculator/59-mezon`).row();
+      const adminToken = jwt.sign({ role: 'ADMIN', type: 'CALC_ACCESS' }, config.jwtSecret, { expiresIn: '30d' });
+      kb.webApp("🚀 11 mezon (Admin)", `${config.webUrl}/calculator/11-mezon?token=${adminToken}`).row()
+        .webApp("🚀 59 mezon (Admin)", `${config.webUrl}/calculator/59-mezon?token=${adminToken}`).row();
     }
     kb.text(lang === 'ru' ? "🔹 11 критериев (Экспресс) — 50 000 сум" : "🔹 11 ta mezon (Tezkor) — 50 000 so‘m", "buy_calc:11").row()
       .text(lang === 'ru' ? "🏆 59 критериев (Профессионал) — 150 000 сум" : "🏆 59 ta mezon (Professional) — 150 000 so‘m", "buy_calc:59");
@@ -280,15 +282,17 @@ export function createBot(): Bot<MyContext> {
 
       await ctx.answerCallbackQuery();
 
-      const calcUrl = criteria === '11'
-        ? `${config.webUrl}/calculator/11-mezon`
-        : `${config.webUrl}/calculator/59-mezon`;
       const calcTitle = criteria === '11'
         ? (lang === 'ru' ? '11 критериев (Экспресс)' : '11 ta mezon (Tezkor tahlil)')
         : (lang === 'ru' ? '59 критериев (Профессионал)' : '59 ta mezon (Professional tahlil)');
 
-      // If admin, give instant direct access
+      // If admin, give instant direct access with 30-day admin token
       if (isAdmin) {
+        const adminToken = jwt.sign({ role: 'ADMIN', type: 'CALC_ACCESS' }, config.jwtSecret, { expiresIn: '30d' });
+        const calcUrl = criteria === '11'
+          ? `${config.webUrl}/calculator/11-mezon?token=${adminToken}`
+          : `${config.webUrl}/calculator/59-mezon?token=${adminToken}`;
+
         const kb = new InlineKeyboard()
           .webApp(lang === 'ru' ? "🚀 Открыть калькулятор" : "🚀 Kalkulyatorni ochish", calcUrl).row()
           .url(lang === 'ru' ? "🌐 В браузере" : "🌐 Brauzerda ochish", calcUrl);
@@ -334,32 +338,8 @@ export function createBot(): Bot<MyContext> {
         });
       }
 
-      // Check if user already purchased and has active access
-      const existingPaid = await prisma.question.findFirst({
-        where: {
-          userId: user.id,
-          serviceId: service.id,
-          OR: [
-            { status: 'COMPLETED' },
-            { payments: { some: { status: 'APPROVED' } } },
-          ],
-        },
-      });
-
-      if (existingPaid) {
-        const kb = new InlineKeyboard()
-          .webApp(lang === 'ru' ? "🚀 Открыть калькулятор" : "🚀 Kalkulyatorni ochish", calcUrl).row()
-          .url(lang === 'ru' ? "🌐 Открыть в браузере" : "🌐 Brauzerda ochish", calcUrl);
-        await ctx.reply(
-          lang === 'ru'
-            ? `✅ У вас уже есть оплаченный доступ к: <b>${calcTitle}</b>!\n\nНажмите кнопку ниже для запуска:`
-            : `✅ Sizda ushbu kalkulyatordan foydalanish uchun to‘langan ruxsat mavjud: <b>${calcTitle}</b>!\n\nQuyidagi tugma orqali ishga tushiring:`,
-          { parse_mode: 'HTML', reply_markup: kb }
-        );
-        return;
-      }
-
-      // Find existing pending question or create a new one
+      // Each calculation requires a separate payment!
+      // Check if user currently has an unpaid pending order for this calculator
       let questionRecord = await prisma.question.findFirst({
         where: {
           userId: user.id,
@@ -369,6 +349,7 @@ export function createBot(): Bot<MyContext> {
         orderBy: { id: 'desc' },
       });
 
+      // If no pending order, create a fresh new order for this calculation
       if (!questionRecord) {
         const lastQ = await prisma.question.findFirst({ orderBy: { id: 'desc' } });
         const qNum = lastQ ? lastQ.questionNumber + 1 : 1024;
@@ -399,7 +380,11 @@ export function createBot(): Bot<MyContext> {
       const summary = messages[lang].orderSummary(questionRecord.questionNumber, calcTitle, priceFormatted);
       const payInstruction = messages[lang].paymentInstructions(cardNum, cardHolder, priceFormatted);
 
-      const fullMessage = `${summary}\n\n${payInstruction}`;
+      const singleUseNote = lang === 'ru'
+        ? "\n\n💡 <i>Примечание: Оплата производится отдельно за каждый расчет. После оплаты отправьте чек. При подтверждении вам откроется разовый доступ к калькулятору на 24 часа.</i>"
+        : "\n\n💡 <i>Eslatma: Har bir hisob-kitob uchun to‘lov alohida amalga oshiriladi. To‘lov chekini yuboring, tasdiqlangach sizga 24 soatlik kirish ruxsati ochiladi.</i>";
+
+      const fullMessage = `${summary}\n\n${payInstruction}${singleUseNote}`;
 
       try {
         await ctx.reply(fullMessage, {

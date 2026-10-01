@@ -83,7 +83,7 @@
 
         <div class="pt-4 pb-1 px-3 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Kalkulyatorlar</div>
         
-        <a href="/calculator/11-mezon" target="_blank" class="nav-item flex items-center justify-between px-3 py-2 rounded-xl font-medium text-xs text-slate-300 hover:text-white hover:bg-slate-800 transition border border-slate-800/60 hover:border-emerald-500/40">
+        <a href="javascript:void(0)" onclick="openCalculatorWithAdminToken('/calculator/11-mezon')" class="nav-item flex items-center justify-between px-3 py-2 rounded-xl font-medium text-xs text-slate-300 hover:text-white hover:bg-slate-800 transition border border-slate-800/60 hover:border-emerald-500/40">
           <div class="flex items-center space-x-2.5">
             <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
             <div>
@@ -94,7 +94,7 @@
           <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
         </a>
 
-        <a href="/calculator/59-mezon" target="_blank" class="nav-item flex items-center justify-between px-3 py-2 rounded-xl font-medium text-xs text-slate-300 hover:text-white hover:bg-slate-800 transition border border-slate-800/60 hover:border-amber-500/40">
+        <a href="javascript:void(0)" onclick="openCalculatorWithAdminToken('/calculator/59-mezon')" class="nav-item flex items-center justify-between px-3 py-2 rounded-xl font-medium text-xs text-slate-300 hover:text-white hover:bg-slate-800 transition border border-slate-800/60 hover:border-amber-500/40">
           <div class="flex items-center space-x-2.5">
             <span class="w-2 h-2 rounded-full bg-amber-400"></span>
             <div>
@@ -502,5 +502,11 @@
 
   <script src="/admin/admin.js"></script>
   <script src="/admin/autosubmit.js"></script>
+  <script>
+    function openCalculatorWithAdminToken(path) {
+      const token = localStorage.getItem('token') || '';
+      window.open(path + '?token=' + encodeURIComponent(token), '_blank');
+    }
+  </script>
 </body>
 </html>

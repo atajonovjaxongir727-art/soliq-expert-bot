@@ -1,3 +1,4 @@
+import jwt from 'jsonwebtoken';
 import { Bot, InlineKeyboard } from 'grammy';
 import { prisma, logActivity } from '../database/db.js';
 import { config } from '../config/index.js';
@@ -117,14 +118,24 @@ export async function notifyUserPaymentStatus(questionId: number, approved: bool
 
     if (approved) {
       if (q.service?.code === 'RISK_CALC_11' || q.service?.code === 'RISK_CALC_59') {
-        const calcUrl = q.service?.code === 'RISK_CALC_11'
-          ? `${config.webUrl}/calculator/11-mezon`
-          : `${config.webUrl}/calculator/59-mezon`;
+        const token = jwt.sign(
+          {
+            qId: q.id,
+            qNum: q.questionNumber,
+            serviceCode: q.service.code,
+            type: 'CALC_ACCESS',
+          },
+          config.jwtSecret,
+          { expiresIn: '24h' }
+        );
+
+        const basePath = q.service?.code === 'RISK_CALC_11' ? '/calculator/11-mezon' : '/calculator/59-mezon';
+        const calcUrl = `${config.webUrl}${basePath}?token=${token}`;
         const calcName = lang === 'ru' ? q.service.nameRu : q.service.nameUz;
 
         const text = lang === 'ru'
-          ? `✅ <b>Оплата по калькулятору успешно подтверждена!</b>\n\nВам открыт доступ к: <b>${calcName}</b>.\n\nНажмите кнопку ниже, чтобы открыть калькулятор и рассчитать свой налоговый риск:`
-          : `✅ <b>Kalkulyator uchun to‘lovingiz tasdiqlandi!</b>\n\nSizga ruxsat ochildi: <b>${calcName}</b>.\n\nQuyidagi tugma orqali kalkulyatorni ochib, o‘z korxonangiz ko‘rsatkichlarini kiritgan holda soliq riskini aniqlashingiz mumkin:`;
+          ? `✅ <b>Оплата по калькулятору #${q.questionNumber} успешно подтверждена!</b>\n\nВам открыт разовый доступ к: <b>${calcName}</b> (доступ активен в течение 24 часов).\n\nНажмите кнопку ниже, чтобы открыть калькулятор и рассчитать налоговый риск:`
+          : `✅ <b>#${q.questionNumber}-sonli hisob-kitob uchun to‘lovingiz tasdiqlandi!</b>\n\nSizga <b>${calcName}</b> bo‘yicha bir martalik kirish ruxsati berildi (ruxsat 24 soat amal qiladi).\n\nQuyidagi tugma orqali kalkulyatorni ochib, o‘z korxonangiz ko‘rsatkichlarini kiritgan holda soliq riskini aniqlashingiz mumkin:`;
 
         const kb = new InlineKeyboard()
           .webApp(lang === 'ru' ? "🚀 Открыть калькулятор" : "🚀 Kalkulyatorni ochish", calcUrl).row()
