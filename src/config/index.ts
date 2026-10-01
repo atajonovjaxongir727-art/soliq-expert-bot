@@ -1,5 +1,9 @@
-import dotenv from 'dotenv';
+﻿import dotenv from 'dotenv';
 dotenv.config();
+
+if (!process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = 'file:./dev.db';
+}
 
 export const config = {
   port: parseInt(process.env.PORT || '3000', 10),
@@ -10,6 +14,6 @@ export const config = {
   adminDefaultUsername: process.env.ADMIN_DEFAULT_USERNAME || 'admin',
   adminDefaultPassword: process.env.ADMIN_DEFAULT_PASSWORD || 'admin123password',
   geminiApiKey: process.env.GEMINI_API_KEY || '',
-  paymentCardNumber: process.env.PAYMENT_CARD_NUMBER || '8600 0000 0000 0000',
-  paymentCardHolder: process.env.PAYMENT_CARD_HOLDER || 'SOLIQ EXPERT MCHJ',
+  paymentCardNumber: process.env.PAYMENT_CARD_NUMBER || '5614681420273934',
+  paymentCardHolder: process.env.PAYMENT_CARD_HOLDER || 'Atajonov Jaxongir',
 };
